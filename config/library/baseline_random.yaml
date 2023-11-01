@@ -1,0 +1,3 @@
+name: random
+runner:
+  _target_: src.BaselineRandomRunner

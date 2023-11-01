@@ -1,0 +1,39 @@
+name: user_knn
+
+model:
+  num_neighbours: 10
+  min_k: 1
+  verbose: False
+  user_column: ${dataset.user_column}
+  item_column: ${dataset.item_column}
+  rating_column: ${dataset.rating_column}
+  sim_options:
+    name: cosine
+    user_based: True
+
+saved_model: False
+saved_model_name: model_0
+
+enable_optimization: True
+optuna_optimizer:
+  n_trials: 40
+  k_optimization: [10]
+  sampler:
+    _target_: optuna.samplers.TPESampler
+    seed: 42
+  pruner:
+    _target_: optuna.pruners.MedianPruner
+  hyperparameters_vary:
+    int:
+      - name: num_neighbours
+        low: 4
+        high: 25
+      - name: min_k
+        low: 1
+        high: 3
+    choice:
+      - name: name
+        choices:
+          - cosine
+          - msd
+          - pearson

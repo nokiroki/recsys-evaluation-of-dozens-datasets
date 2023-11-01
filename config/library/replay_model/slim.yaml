@@ -1,0 +1,30 @@
+name: slim
+
+model:
+  beta: .01
+  lambda_: .01
+
+saved_model: False
+saved_model_name: model_0
+
+enable_optimization: True
+optuna_optimizer:
+  n_trials: 40
+  k_optimization: [10]
+  sampler:
+    _target_: optuna.samplers.TPESampler
+    seed: 42
+  pruner:
+    _target_: optuna.pruners.MedianPruner
+  hyperparameters_vary:
+    const:
+      seed: 42
+    float:
+      - name: beta
+        low: .000001
+        high: 5
+        log: True
+      - name: lambda_
+        low: .000001
+        high: 2
+        log: True

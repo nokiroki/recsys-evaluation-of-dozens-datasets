@@ -1,0 +1,5 @@
+# @package _global_
+hydra:
+  sweeper:
+    params:
+      dataset: xwines,yahoo,tmall,lfm,amazon_books,otto

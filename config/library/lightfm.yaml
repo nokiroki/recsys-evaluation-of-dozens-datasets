@@ -1,0 +1,44 @@
+name: lightfm
+runner:
+  _target_: src.LightFMRunner
+
+model:
+  loss: warp
+  no_components: 80
+  max_sampled: 10
+  learning_rate: 0.0081
+
+learning:
+  num_threads: 20
+  num_epochs: 50
+  # mp_threads: 20
+
+saved_model: False
+saved_model_name: model_0
+
+enable_optimization: True
+optuna_optimizer:
+  n_trials: 40
+  k_optimization: [10]
+  sampler:
+    _target_: optuna.samplers.TPESampler
+    seed: 42
+  pruner:
+    _target_: optuna.pruners.MedianPruner
+  hyperparameters_vary:
+    const:
+      loss: warp
+    int:
+      - name: no_components
+        low: 10
+        high: 100
+        step: 10
+      - name: max_sampled
+        low: 10
+        high: 50
+        step: 5
+    float:
+      - name: learning_rate
+        low: .00001
+        high: .01
+        log: True

@@ -1,0 +1,5 @@
+# @package _global_
+hydra:
+  sweeper:
+    params:
+      dataset: movielens_10m,dianping,food,movielens_20m,retail,mts,netflix,amazon_cds,goodreads,gowalla,amazon_tv,yelp

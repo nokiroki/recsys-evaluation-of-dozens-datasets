@@ -1,0 +1,56 @@
+name: MultiVAE
+
+model:
+  latent_dimendion: 64
+  anneal_cap: 0.3
+  dropout_prob: 0.5
+  learning_rate: 0.0001
+
+saved_model: False
+saved_model_name: model_0
+
+recbole_params:
+  USER_ID_FIELD: 'user_id'
+  ITEM_ID_FIELD: 'item_id'
+  RATING_FIELD: 'rating'
+  TIME_FIELD: 'timestamp'
+  benchmark_filename: ['train', 'val', 'test']
+  load_col: {'inter': ['user_id', 'item_id', 'rating']}
+
+  worker: 8
+  nproc: 4
+  gpu_id: 0
+  train_batch_size: 4096
+  eval_batch_size: 40960000 
+
+  neg_sampling: None
+  train_neg_sample_args: None
+  epochs: 300
+  show_progress: True
+  
+enable_optimization: True
+optuna_optimizer:
+  n_trials: 40
+  k_optimization: [10]
+  sampler:
+    _target_: optuna.samplers.TPESampler
+    seed: 42
+  pruner:
+    _target_: optuna.pruners.MedianPruner
+  hyperparameters_vary:
+    int:
+      - name: latent_dimendion
+        low: 32
+        high: 256
+        step: 32
+    float:
+      - name: anneal_cap
+        low: 0.0
+        high: 1.0
+      - name: dropout_prob
+        low: 0.0
+        high: 0.7
+      - name: learning_rate
+        low: .00001
+        high: .01
+        log: True

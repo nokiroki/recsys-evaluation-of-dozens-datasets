@@ -1,1 +1,1 @@
-# recsys-evaluation-of-dozens-datasets
+# sber-recsys

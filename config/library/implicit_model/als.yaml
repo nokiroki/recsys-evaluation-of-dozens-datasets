@@ -1,0 +1,42 @@
+name: als
+
+model:
+  factors: 50
+  regularization: 0.0001
+  iterations: 20
+  alpha: 1
+
+learning:
+  show_progress: True
+
+saved_model: False
+saved_model_name: model_0
+
+enable_optimization: True
+optuna_optimizer:
+  n_trials: 40
+  k_optimization: [10]
+  sampler:
+    _target_: optuna.samplers.TPESampler
+    seed: 42
+  pruner:
+    _target_: optuna.pruners.MedianPruner
+  hyperparameters_vary:
+    int:
+      - name: factors
+        low: 50
+        high: 200
+        step: 5
+      - name: iterations
+        low: 10
+        high: 100
+        step: 5
+      - name: alpha
+        low: 1
+        high: 50
+        step: 1
+    float:
+      - name: 'regularization'
+        low: .0001
+        high: 100
+        log: True

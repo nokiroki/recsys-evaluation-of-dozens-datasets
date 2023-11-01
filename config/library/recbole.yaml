@@ -1,0 +1,7 @@
+defaults:
+  - recbole_model: ItemKNN
+  - _self_
+
+name: recbole
+runner:
+  _target_: src.RecboleRunner

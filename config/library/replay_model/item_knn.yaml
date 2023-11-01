@@ -1,0 +1,38 @@
+name: item_knn
+
+model:
+  num_neighbours: 10
+  use_relevance: ${dataset.weighted}
+  shrink: 0
+  weighting: 
+
+saved_model: False
+saved_model_name: model_0
+
+enable_optimization: True
+optuna_optimizer:
+  n_trials: 40
+  k_optimization: [10]
+  sampler:
+    _target_: optuna.samplers.TPESampler
+    seed: 42
+  pruner:
+    _target_: optuna.pruners.MedianPruner
+  hyperparameters_vary:
+    const:
+      use_relevance: ${dataset.weighted}
+    int:
+      - name: num_neighbours
+        low: 10
+        high: 2500
+        step: 10
+      - name: shrink
+        low: 0
+        high: 100
+        step: 1
+    choice:
+      - name: weighting
+        choices:
+          -
+          - tf_idf
+          - bm25

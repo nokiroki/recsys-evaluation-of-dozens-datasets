@@ -1,0 +1,5 @@
+# @package _global_
+hydra:
+  sweeper:
+    params:
+      dataset: foursquare,kuairec_small,douban_music,douban_books,reddit,movielens_1m,douban_movies,kuairec_full,rekko,brightkite,amazon_finefoods,beeradvocate,ratebeer,epinions,tafeng

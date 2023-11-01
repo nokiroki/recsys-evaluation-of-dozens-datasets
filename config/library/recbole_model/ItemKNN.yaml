@@ -1,0 +1,42 @@
+name: ItemKNN
+
+model:
+  k: 100
+  shrink: 0.0
+
+saved_model: False
+saved_model_name: model_0
+
+recbole_params:
+  USER_ID_FIELD: 'user_id'
+  ITEM_ID_FIELD: 'item_id'
+  RATING_FIELD: 'rating'
+  TIME_FIELD: 'timestamp'
+  benchmark_filename: ['train', 'val', 'test']
+  load_col: {'inter': ['user_id', 'item_id', 'rating']}
+
+  gpu_id: 0
+  train_batch_size: 4096
+  eval_batch_size: 40960000
+
+  neg_sampling: None
+  show_progress: True
+
+enable_optimization: True
+optuna_optimizer:
+  n_trials: 40
+  k_optimization: [10]
+  sampler:
+    _target_: optuna.samplers.TPESampler
+    seed: 42
+  pruner:
+    _target_: optuna.pruners.MedianPruner
+  hyperparameters_vary:
+    int:
+      - name: k
+        low: 10
+        high: 2500
+    float:
+      - name: shrink  
+        low: 0.0
+        high: 1.0

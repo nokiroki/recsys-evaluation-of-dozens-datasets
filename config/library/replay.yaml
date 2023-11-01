@@ -1,0 +1,6 @@
+name: replay
+runner:
+  _target_: src.RePlayRunner
+
+defaults:
+  - replay_model: item_knn

@@ -1,0 +1,6 @@
+name: surprise
+runner:
+  _target_: src.SurpriseRunner
+
+defaults:
+  - surprise_model: user_knn

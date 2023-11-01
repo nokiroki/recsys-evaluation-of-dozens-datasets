@@ -1,0 +1,18 @@
+#! /bin/bash
+source credentials
+
+docker run \
+ -d \
+ -p ${CONTAINER_PORT}:8891 \
+ --shm-size=8g \
+ --memory=60g \
+ --cpus=16 \
+ --user ${DOCKER_USER_ID}:${DOCKER_GROUP_ID} \
+ --name ${CONTAINER_NAME} \
+ --rm -it --init \
+ -v /home/p.sokerin/${SRC}:/app \
+ --gpus all \
+ v.zholobov_recsys \
+ bash
+docker exec v.zholobov_recsys_2 conda init bash
+docker exec v.zholobov_recsys_2 conda activate base2

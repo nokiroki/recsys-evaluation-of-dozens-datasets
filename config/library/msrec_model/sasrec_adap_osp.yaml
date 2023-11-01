@@ -1,0 +1,73 @@
+name: sasrec
+type: &type adaptated
+old_style_preproc: &old_style_preproc True
+
+saved_model: False
+saved_model_name: model_0
+
+
+model:
+  user_num: &user_num ???
+  item_num: &item_num ???
+  user_column: ${dataset.user_column}
+  item_column: ${dataset.item_column}
+  device: &device "cuda:0"
+  hidden_units: 100
+  num_heads: 1
+  dropout_rate: 0.1
+  l2_emb: 0.
+  maxlen: 100
+  num_blocks: 1
+  batch_size: &batch_size 128
+  type: *type
+  old_style: *old_style_preproc
+learning:
+  num_threads: 8
+  num_epochs: 50
+  val_step: 2 # choose -1 to turn validation off
+
+enable_optimization: True
+optuna_optimizer:
+  n_trials: 40
+  k_optimization: [10]
+  sampler:
+    _target_: optuna.samplers.TPESampler
+    seed: 42
+  pruner:
+    _target_: optuna.pruners.MedianPruner
+  hyperparameters_vary:
+    const:
+      batch_size: *batch_size
+      user_num: *user_num
+      item_num: *item_num
+      user_column: ${dataset.user_column}
+      item_column: ${dataset.item_column}
+      device: *device
+      num_heads: 1
+      type: *type
+      old_style: *old_style_preproc
+    int:
+      - name: num_blocks
+        low: 1
+        high: 9
+        step: 1
+      - name: hidden_units
+        low: 32
+        high: 256
+        step: 1
+      - name: maxlen
+        low: 50
+        high: 200
+        step: 25
+    float:
+      - name: learning_rate
+        low: .00001
+        high: .01
+        log: True
+      - name: dropout_rate
+        low: 0.1
+        high: 0.5
+      - name: l2_emb
+        low: .000001
+        high: 0.5
+        log: True

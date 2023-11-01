@@ -1,0 +1,18 @@
+name: amazon_finefoods
+data_src: data/amazon_finefoods
+ratings_file: amazon_finefoods.parquet
+user_column: userId
+item_column: productId
+rating_column: reviewscore
+date_column: time
+min_item_ratings: ${default_dataset_parameters.min_item_rating}
+min_user_ratings: ${default_dataset_parameters.min_user_rating}
+weighted: True
+positive_threshold: 3.5
+meta_user: False
+meta_item: False
+splitting:
+  strategy: ${default_dataset_parameters.splitting.strategy}
+  train_size: ${default_dataset_parameters.splitting.train_size}
+  val_size: ${default_dataset_parameters.splitting.val_size}
+  test_size: ${default_dataset_parameters.splitting.test_size}

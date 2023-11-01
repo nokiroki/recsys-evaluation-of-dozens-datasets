@@ -1,0 +1,18 @@
+name: yelp
+data_src: data/yelp
+ratings_file: ratings.parquet
+user_column: userId
+item_column: itemId
+rating_column: rating
+date_column: timestamp
+min_item_ratings: ${default_dataset_parameters.min_item_rating}
+min_user_ratings: ${default_dataset_parameters.min_user_rating}
+weighted: True
+positive_threshold: 3.5
+meta_user: False
+meta_item: False
+splitting:
+  strategy: ${default_dataset_parameters.splitting.strategy}
+  train_size: ${default_dataset_parameters.splitting.train_size}
+  val_size: ${default_dataset_parameters.splitting.val_size}
+  test_size: ${default_dataset_parameters.splitting.test_size}

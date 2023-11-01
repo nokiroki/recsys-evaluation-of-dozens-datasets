@@ -1,0 +1,6 @@
+name: msrec
+runner:
+  _target_: src.SasRecRunner
+
+defaults:
+  - msrec_model: sasrec_adap_osp
