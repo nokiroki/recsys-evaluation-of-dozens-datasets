@@ -15,6 +15,16 @@ logger = get_logger(name=__name__)
 
 
 def get_score_array(data: pd.DataFrame, method_name: str, bootstraped: bool = True) -> np.ndarray:
+    """Scores for the method by all datasets.
+
+    Args:
+        data (pd.DataFrame): Standart type pandas dataframe.
+        method_name (str): Method for which we return metrics.
+        bootstraped (bool, optional): If we are working with bootstraped values. Defaults to True.
+
+    Returns:
+        np.ndarray: Numpy array with method values.
+    """
     data_temp = data[data["Method"] == method_name].drop(columns=["Method"], axis=1)
     if not bootstraped:
         return data_temp["Value"].values
@@ -27,6 +37,19 @@ def bayes_scores(
     bootstraped: bool = False,
     nsamples: int = 10000
 ) -> pd.DataFrame:
+    """Bayesian method for methods comparison. Calculate Hierarchical Test for bootstraped data
+        end Signed Rank Test vice versa.
+
+    Args:
+        data (pd.DataFrame): Standart type pandas dataframe.
+        rope (float, optional): Region Of Practical Equivalence. Defaults to .0.
+        bootstraped (bool, optional): If we are working with bootstraped values. Defaults to False.
+        nsamples (int, optional): Number of samples to use while calculating the probabilities.
+            Defaults to 10000.
+
+    Returns:
+        pd.DataFrame: Dataframe with the results.
+    """
     results = list()
     names = data["Method"].unique()
     for method_1, method_2 in tqdm(
@@ -59,8 +82,18 @@ def bayes_scores(
 
 
 def binarize_bayes(results: pd.DataFrame, threshold: float = .9) -> pd.DataFrame:
+    """ Calculates if one of the probalities is significantly more likely then the others.
+
+    Args:
+        results (pd.DataFrame): The results after bayesian tests.
+        threshold (float, optional): Probability threshold. Defaults to .9.
+
+    Returns:
+        pd.DataFrame: New Dataframe with the binary column.
+    """
     results_copy = results.copy()
     results_copy[["p_more", "p_less", "p_rope"]] = \
         results_copy[["p_more", "p_less", "p_rope"]] >= threshold
-    results_copy["is_significance"] = results_copy["p_more"] | results_copy["p_less"]
-    return results_copy.drop(columns=["p_more", "p_less"])
+    results_copy["is_significance"] = \
+        results_copy["p_more"] | results_copy["p_less"] | results_copy["p_rope"]
+    return results_copy

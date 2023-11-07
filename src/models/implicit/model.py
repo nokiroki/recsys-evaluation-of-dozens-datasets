@@ -48,6 +48,7 @@ class ImplicitBench:
         self.model_params = model_params
         self.learning_time: Optional[float] = None
         self.predict_time: Optional[float] = None
+        self.train_interactions: Optional[csr_matrix] = None
 
     @staticmethod
     def initialize_with_params(
@@ -113,7 +114,7 @@ class ImplicitBench:
         optuna_params: DictConfig,
         interactions_train: Union[coo_matrix, csr_matrix],
         weights_train: Union[coo_matrix, csr_matrix],
-        interactions_val: Union[coo_matrix, csr_matrix],
+        interactions_val: Union[coo_matrix, csr_matrix]
     ) -> "ImplicitBench":
         """
         Initialize ImplicitBench with hyperparameter optimization using Optuna.
@@ -277,8 +278,9 @@ class ImplicitBench:
         self.model.fit(
             user_items=weight_data.tocsr(),
             show_progress=show_progress,
-            callback=callback,
+            callback=callback
         )
+        self.train_interactions = interactions.tocsr()
         self.learning_time = time.time() - start_time
 
     def save_model(self, path: Path) -> None:
@@ -325,7 +327,7 @@ class ImplicitBench:
     def get_relevant_ranks(
         self,
         test_interactions: coo_matrix,
-        train_interactions: coo_matrix,
+        train_interactions: Optional[coo_matrix] = None
     ) -> np.ndarray:
         """
         Get relevant ranks for the test interactions.
@@ -338,7 +340,10 @@ class ImplicitBench:
             np.ndarray: Array of relevant ranks for each user in the test set.
         """
         # Converting to CSR
-        train_interactions = train_interactions.tocsr()
+        if train_interactions is not None:
+            train_interactions = train_interactions.tocsr()
+        else:
+            train_interactions = self.train_interactions.tocsr()
         test_interactions = test_interactions.tocsr()
 
         # Extract number of users and items
@@ -368,16 +373,14 @@ class ImplicitBench:
                 # make recommendations on cpu due to large datasets
                 if isinstance(
                     self.model,
-                    (implicit.gpu.als.AlternatingLeastSquares, 
+                    (implicit.gpu.als.AlternatingLeastSquares,
                     implicit.gpu.bpr.BayesianPersonalizedRanking)
                     ):
                     self.model = self.model.to_cpu()
                 else:
                     pass
 
-                ids_batch, _ = self.model.recommend(
-                    batch, train_interactions[batch], N=items
-                )
+                ids_batch, _ = self.model.recommend(batch, train_interactions[batch], N=items)
                 start_idx += batch_size
 
                 ranks_batch = self._implicit_recommendation_to_rank(
@@ -394,7 +397,6 @@ class ImplicitBench:
 
     def recommend_k(
         self,
-        train_interactions: coo_matrix,
         k: int,
         filter_already_liked_items: bool = True,
         filter_items=None,
@@ -418,6 +420,7 @@ class ImplicitBench:
         Returns:
             np.ndarray: 2-dimensional array with a row of item IDs for each user.
         """
+        train_interactions = self.train_interactions[np.ediff1d(self.train_interactions.indptr) > 0]
         userids = np.arange(train_interactions.shape[0])
         ids, _ = self.model.recommend(
             userid=userids,

@@ -12,7 +12,7 @@ learning:
 saved_model: False
 saved_model_name: model_0
 
-enable_optimization: True
+enable_optimization: False
 optuna_optimizer:
   n_trials: 40
   k_optimization: [10]

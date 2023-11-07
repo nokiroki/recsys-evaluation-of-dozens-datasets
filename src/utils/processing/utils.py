@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 from scipy.sparse import coo_matrix, csr_matrix
 
-from replay.data_preparator import DataPreparator
+from replay.preprocessing import DataPreparator
 from replay.splitters import DateSplitter, RandomSplitter
 from pyspark.sql import DataFrame
 
@@ -69,6 +69,45 @@ def create_sparse_matrix(
     else:
         return interactions, None
 
+def train_test_split(
+    dataset: pd.DataFrame,
+    test_size: float,
+    user_col: str = "userid",
+    item_col: str = "itemId",
+    date_col: str = "datetime",
+    *,
+    splitting_type: str = "temporal",
+    random_state: Optional[int] = None
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    if splitting_type == "temporal":
+        dataset.sort_values(date_col, inplace=True)
+        date_at_test_percentile = dataset[date_col].quantile(1 - test_size)
+
+        train_set = dataset[dataset[date_col] <= date_at_test_percentile]
+        test_set = dataset[dataset[date_col] > date_at_test_percentile]
+
+    elif splitting_type == "random":
+        random_state = np.random.RandomState(random_state)
+        random_index = random_state.random_sample(len(dataset))
+        train_index = random_index < 1 - test_size
+        test_index = random_index >= 1 - test_size
+
+        train_set = dataset[train_index]
+        test_set = dataset[test_index]
+
+    else:
+        raise NotImplementedError(
+            f"Splitting type {splitting_type} isn't implemented for this example"
+        )
+
+    # Filter out rows in test set that have users, items not present in train and val sets
+    train_users = set(train_set[user_col])
+    train_items = set(train_set[item_col])
+    test_set = test_set[
+        test_set[user_col].isin(train_users) & test_set[item_col].isin(train_items)
+    ]
+
+    return train_set, test_set
 
 def data_split(
     dataset: pd.DataFrame,

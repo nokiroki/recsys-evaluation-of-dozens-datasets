@@ -75,7 +75,6 @@ class RecboleBench:
         Raises:
             ValueError: If the model name is not the name of an existing model.
         """
-
         dataset = train_loader.dataset
         config = dataset.config
 
@@ -88,7 +87,7 @@ class RecboleBench:
         init_seed(config["seed"] + config["local_rank"], config["reproducibility"])
         model = get_model(config["model"])(config, dataset).to(config["device"])
 
-        return RecboleBench(model, train_loader)
+        return RecboleBench(model, train_loader, model_params)
 
     @staticmethod
     def initialize_saved_model(
@@ -225,9 +224,7 @@ class RecboleBench:
             saved=False,
             show_progress=self.config["show_progress"],
         )
-        learning_time = time.time() - start_time
-
-        self.learning_time = learning_time
+        self.learning_time = time.time() - start_time
 
     def save_model(self, path: Path) -> None:
         """

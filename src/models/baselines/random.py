@@ -54,7 +54,7 @@ class RandomBaseline:
             ranks[i, :len(test_relevants[user])] = temp_ranks[test_relevants[user]]
         return ranks
 
-    def recommend_k(self, train_interactions: csr_matrix, k: int) -> np.ndarray:
+    def recommend_k(self, test_interactions: csr_matrix, k: int) -> np.ndarray:
         """Get k predicted items for each user.
         Will not be same because of seen items pruning.
 
@@ -65,9 +65,9 @@ class RandomBaseline:
         Returns:
             np.ndarray: ndarray with predicted items
         """
-        k = min(k, train_interactions.shape[1])
-        predicts = np.zeros((train_interactions.shape[0], k), dtype=np.int32)
-        for user in range(train_interactions.shape[0]):
+        k = min(k, test_interactions.shape[1])
+        predicts = np.zeros((test_interactions.shape[0], k), dtype=np.int32)
+        for user in range(test_interactions.shape[0]):
             temp_ranks = np.arange(self.max_items)
             rnd.shuffle(temp_ranks)
             predicts[user] = temp_ranks.argsort()[:k]

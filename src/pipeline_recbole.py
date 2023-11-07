@@ -91,14 +91,14 @@ class RecboleRunner(BaseRunner):
         config["benchmark_filename"] = ["trainval", "val", "test"]
         dataset = create_dataset(config)
         trainval_set, valid_set, test_set = data_preparation(config, dataset)
-        model = RecboleBench.initialize_with_params(
-            train_loader=trainval_set, model_params=bench.config.parameters
+        bench = RecboleBench.initialize_with_params(
+            train_loader=trainval_set, model_params=bench.config.final_config_dict
         )
-        model.fit(trainval_set)
-        model.save_model(model_folder)
+        bench.fit(trainval_set)
+        bench.save_model(model_folder)
 
-        ranks = model.get_relevant_ranks(test_set)
-        top_100_items = model.recommend_k(test_set, 100)
+        ranks = bench.get_relevant_ranks(test_set)
+        top_100_items = bench.recommend_k(test_set, 100)
 
         metrics = run_all_metrics(ranks, [5, 10, 20, 100])
         coverage_metrics = []

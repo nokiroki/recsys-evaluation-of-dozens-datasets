@@ -16,7 +16,7 @@ from optuna.trial import Trial
 
 from pyspark.sql import DataFrame
 from replay.models import ItemKNN, SLIM
-from replay.model_handler import save, load
+from replay.utils.model_handler import save, load
 
 from tqdm.auto import tqdm
 

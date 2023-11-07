@@ -1,6 +1,6 @@
 defaults:
-  - dataset: sber_zvuk
-  - library: recbole
+  - dataset: foursquare
+  - library: implicit
   - _self_
 results_folder: results
 

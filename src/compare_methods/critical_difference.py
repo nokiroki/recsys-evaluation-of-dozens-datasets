@@ -1,3 +1,4 @@
+"""Critical Difference diagram plotting."""
 # Author: Hassan Ismail Fawaz <hassan.ismail-fawaz@uha.fr>
 #         Germain Forestier <germain.forestier@uha.fr>
 #         Jonathan Weber <jonathan.weber@uha.fr>
@@ -5,30 +6,34 @@
 #         Pierre-Alain Muller <pierre-alain.muller@uha.fr>
 # License: GPL3
 from typing import Sequence
-from itertools import filterfalse
+import argparse
+from pathlib import Path
+import operator
+import math
 
 import numpy as np
 import pandas as pd
+
 import matplotlib
-import argparse
-from pathlib import Path
-
-
-matplotlib.use('agg')
 import matplotlib.pyplot as plt
 
-matplotlib.rcParams['font.family'] = 'sans-serif'
-matplotlib.rcParams['font.sans-serif'] = 'Arial'
-
-import operator
-import math
 from scipy.stats import wilcoxon
 from scipy.stats import friedmanchisquare
 import networkx
 
 from .bayesian_test import bayes_scores, binarize_bayes
 
+matplotlib.use("agg")
+matplotlib.rcParams["font.family"] = "sans-serif"
+matplotlib.rcParams["font.sans-serif"] = "Arial"
+
 ALPHA = 0.05
+
+
+class CriticalDifference:
+
+    def __init__(self) -> None:
+        pass
 
 # inspired from orange3 https://docs.orange.biolab.si/3/data-mining-library/reference/evaluation.cd.html
 def graph_ranks(avranks, names, p_values, cd=None, cdmethod=None, lowv=None, highv=None,
@@ -309,7 +314,7 @@ def form_cliques_bayes(significance_df: pd.DataFrame, nnames: Sequence[str]):
 
 
 def draw_cd_diagram(
-    df_perf=None, 
+    df_perf=None,
     alpha=0.05,
     bayes_threshold=.9,
     title=None, 

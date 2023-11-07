@@ -1,6 +1,7 @@
 """Main module"""
 import logging
 from typing import Optional
+import warnings
 
 import numpy as np
 np.float = float
@@ -12,6 +13,7 @@ from omegaconf import DictConfig
 from src import BaseRunner
 
 logging.basicConfig(level=logging.INFO)
+warnings.filterwarnings("ignore")
 
 
 @hydra.main(version_base=None, config_path="config", config_name="config")

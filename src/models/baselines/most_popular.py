@@ -64,20 +64,20 @@ class MostPopularBaseline:
 
         return ranks
 
-    def recommend_k(self, train_interactions: csr_matrix, k: int) -> np.ndarray:
+    def recommend_k(self, test_interactions: csr_matrix, k: int) -> np.ndarray:
         """Get k predicted items for each user.
         Will not be same because of seen items pruning.
 
         Args:
-            train_interactions (csr_matrix): Sparse matrix with the user-item train interactions
+            test_interactions (csr_matrix): Sparse matrix with the user-item test interactions.
             k (int): amount of items to predict
 
         Returns:
             np.ndarray: ndarray with predicted items
         """
         k = min(k, self.ranks.shape[0])
-        predicts = np.zeros((train_interactions.shape[0], k), dtype=np.int32)
-        for user in tqdm(range(train_interactions.shape[0])):
+        predicts = np.zeros((test_interactions.shape[0], k), dtype=np.int32)
+        for user in tqdm(range(test_interactions.shape[0])):
             good_ranks = self.ranks.copy()
             good_ranks[self.train_items[user]] = 0
             predicts[user] = good_ranks.argsort()[:k]

@@ -1,7 +1,5 @@
 FROM nvidia/cuda:11.3.1-base-ubuntu20.04
 
-
-
 # Remove any third-party apt sources to avoid issues with expiring keys.
 RUN rm -f /etc/apt/sources.list.d/*.list
 
@@ -68,9 +66,18 @@ RUN curl -sLo ~/miniconda.sh https://repo.anaconda.com/miniconda/Miniconda3-py39
  && chmod +x ~/miniconda.sh \
  && ~/miniconda.sh -b -p ~/miniconda \
  && rm ~/miniconda.sh \
- # && conda env create --file=environment.yml \
+ && conda env create --file=environment.yml \
  && rm /app/environment.yml \
  && conda clean -ya
 
-# RUN git clone https://github.com/nokiroki/NLP-Transactions.git
-CMD jupyter notebook --allow-root --ip='0.0.0.0' --port=8890 --NotebookApp.token='' --NotebookApp.password=''
+RUN echo "source activate env" > ~/.bashrc
+ENV PATH /opt/conda/envs/env/bin:$PATH
+SHELL ["conda", "run", "-n", "env", "/bin/bash", "-c"]
+
+RUN pip install hydra-core \
+    && pip install implicit \
+    && pip install ezSASRec \
+    && pip install surprise \
+    && pip install replay-rec \
+    && pip install recbole \
+    && pip install baycomp \
