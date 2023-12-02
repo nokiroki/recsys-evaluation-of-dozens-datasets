@@ -274,7 +274,7 @@ def novelty(
         float: Metric value
     """
     predicted_items = predicted_items[:, :k]
-    novelties = np.array(interactions.sum(axis=0)).flatten() / interactions.shape[1]
+    novelties = np.array(interactions.sum(axis=0)).flatten() / interactions.shape[0]
     novelties = novelties[novelties.nonzero()[0]]
     novelties = -np.log2(novelties)
     unique_count = np.bincount(predicted_items.flatten())
