@@ -8,8 +8,6 @@ import pandas as pd
 from scipy.special import comb
 import scipy.sparse as sps
 
-from joblib import Memory
-
 from tqdm.auto import tqdm
 
 from src.utils.logging import get_logger
