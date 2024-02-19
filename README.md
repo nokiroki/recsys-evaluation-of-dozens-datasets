@@ -1,4 +1,4 @@
-# Recsys Evaluation Of Dozen Datasets
+# Advancing RecSys Banchmarking Practices
 **Authors:** Anonym
 
 This repository implements the methodology presented in the article **From Variability to Stability: Advancing RecSys Banchmarking Practices** (*In progress*).
