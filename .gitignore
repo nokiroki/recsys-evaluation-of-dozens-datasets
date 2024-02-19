@@ -191,7 +191,6 @@ config/debug_config.yaml
 pipeline_ALS_amazon_cds.ipynb
 debug.ipynb
 job_4.sh
-images/
 
 SMILES-23-main/
 sasrec-bert4rec-recsys23/

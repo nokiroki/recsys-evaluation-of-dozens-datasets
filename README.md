@@ -1,7 +1,9 @@
-# Advancing RecSys Banchmarking Practices
+# Advancing RecSys Benchmarking Practices
 **Authors:** Anonym
 
-This repository implements the methodology presented in the article **From Variability to Stability: Advancing RecSys Banchmarking Practices** (*In progress*).
+![pipeline](./images/Benchmark_draft.png)
+
+This repository implements the methodology presented in the article **From Variability to Stability: Advancing RecSys Benchmarking Practices** (*In progress*).
 
 Code allows you to run different algorithms with a preset of $30$ datasets from a variety of domains.
 
@@ -52,3 +54,18 @@ Additionally, you can use [Hydra](https://hydra.cc/docs/intro/) notation to modi
 | | LightGCL | |
 | | LightGCN | |
 | **MSRec** | SASRec | https://github.com/recommenders-team/recommenders |
+
+## Supported aggregation methods
+
+- Mean Ranks (MR)
+- Mean Aggregations:
+  - Mean Aggregation (Arithmetic mean) (MA)
+  - Geometric Mean (GM)
+  - Harmonic Mean (HM)
+- Dolan-More Area Under Curve (DM-AUC)
+- Dolan-More leave-best-out (DM LBO)
+- Social Choice Theories:
+  - Copeland
+  - Minimax
+
+Realization is located in `/src/compare_methods/`
