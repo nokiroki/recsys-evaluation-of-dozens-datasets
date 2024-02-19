@@ -65,7 +65,7 @@ def draw_dm_curves(
     df_curves: pd.DataFrame,
     dm_auc: pd.DataFrame,
     figsize: tuple[int, int] = (7, 5),
-    dpi: int = 200,
+    dpi: int = 300,
     linewidth: float = 1.5,
     fontsize: int = 14,
     grid: bool = False,
@@ -111,7 +111,8 @@ def draw_dm_curves(
     plt.savefig(
         image_path.joinpath(image_name + f".{image_format}"),
         dpi="figure",
-        bbox_inches="tight"
+        bbox_inches="tight",
+        format=image_format
     )
 
 
@@ -122,8 +123,8 @@ def run_dolan_more(
     mode: str = "normal",
     step: int = 0.1,
     save_image: bool = True,
-    figsize: tuple[int, int] = (7, 5),
-    dpi: int = 200,
+    figsize: tuple[int, int] = (10, 8),
+    dpi: int = 300,
     linewidth: float = 1.5,
     fontsize: int = 14,
     grid: bool = False,
@@ -155,11 +156,29 @@ def run_dolan_more(
     Returns:
         pd.Series: _description_
     """
+
+    mapping_dict = {
+        'sasrec': 'SASRec',
+        'recbole_ItemKNN': 'ItemKNN',
+        'recbole_EASE': 'EASE',
+        'recbole_MultiVAE': 'MultiVAE',
+        'recbole_LightGCN': 'LightGCN',
+        'recbole_LightGCL': 'LightGCL',
+        'implicit_bpr': 'BPR',
+        'implicit_als': 'ALS',
+        'lightfm': 'LightFM',
+        'recbole_SLIMElastic': 'SLIM',
+        'most_popular': 'MostPop',
+        'msrec_sasrec': 'SASRec',
+        'random': 'Random',
+    }
+    old_data.loc[:, 'Method'] = old_data['Method'].replace(mapping_dict)
     if mode not in ("normal", "leave_best_out"):
         raise NotImplementedError(f"Method {mode} not implemented")
 
     data = old_data.pivot(index="Method", columns="Dataset", values="Value")
     # Max values of metrics for each dataset
+    # print(data)
     max_values_ds = data.max()
     # Betas dataset index - methods, columns - datasets
     df_betas = max_values_ds / data
@@ -188,6 +207,7 @@ def run_dolan_more(
 
     new_ranks = {}
     j = 1
+    # print(dm_auc)
     while len(dm_auc["Model_name"].unique()) > 1:
         min_rank = dm_auc["ranks"].min()
 
@@ -207,7 +227,7 @@ def run_dolan_more(
 
         data = old_data.pivot(
             index="Method", columns="Dataset", values="Value"
-        ).reset_index(drop=True)
+        )
 
         # Max values of metrics for each dataset
         max_values_ds = data.max()

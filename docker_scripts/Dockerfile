@@ -74,11 +74,12 @@ RUN echo "source activate env" > ~/.bashrc
 ENV PATH /opt/conda/envs/env/bin:$PATH
 SHELL ["conda", "run", "-n", "env", "/bin/bash", "-c"]
 
-RUN pip install hydra-core==1.3.2 \
-    && pip install implicit==0.7.2 \
-    && pip install ezSASRec==1.0.1 \
-    && pip install surprise==0.1 \
-    && pip install replay-rec==0.10.0 \
-    && pip install recbole==1.2.0 \
-    && pip install baycomp==1.0.3 \
-    && pip install kmeans_pytorch==0.3
+RUN pip install hydra-core \
+    && pip install implicit \
+    && pip install ezSASRec \
+    && pip install surprise \
+    && pip install replay-rec \
+    && pip install recbole \
+    && pip install baycomp \
+    && pip install lightfm==1.17 \
+    && pip install pytorch-lightning==1.6.5 \

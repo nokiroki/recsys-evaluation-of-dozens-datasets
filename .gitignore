@@ -2,6 +2,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
+recbole/log*
+recbole/saved*
+log*
+saved*
 
 # C extensions
 *.so
@@ -159,5 +163,40 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-notebooks/test_notebooks
-results/
+data/
+preproc_data/
+
+# Drop all .pkl checkpoints
+/*.pkl
+outputs/
+multirun/
+environments/
+MCM/
+temp.zip
+cache/
+
+results/predicts/
+
+# Drop vscode output
+.vscode/
+
+# Bash scripts
+job.sh
+job_2.sh
+
+# perfomance profile example
+perfomance_profile_curves.ipynb
+job_3.sh
+config/debug_config.yaml
+pipeline_ALS_amazon_cds.ipynb
+debug.ipynb
+job_4.sh
+images/
+
+SMILES-23-main/
+sasrec-bert4rec-recsys23/
+docker_scripts_sber/
+lightning_logs/
+
+config/library/msrec_model
+src/models/sasrec/adasasrec.py

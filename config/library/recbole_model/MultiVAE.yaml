@@ -14,7 +14,7 @@ recbole_params:
   ITEM_ID_FIELD: 'item_id'
   RATING_FIELD: 'rating'
   TIME_FIELD: 'timestamp'
-  benchmark_filename: ['train', 'val', 'test']
+  benchmark_filename: ['train', 'test', 'test']
   load_col: {'inter': ['user_id', 'item_id', 'rating']}
 
   worker: 8

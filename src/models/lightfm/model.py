@@ -1,6 +1,7 @@
 """LightFM benchmark module"""
-from typing import Optional, Mapping, Any
+from typing import Optional, Mapping, Any, Union
 from pathlib import Path
+from collections import defaultdict
 import multiprocessing as mp
 import pickle
 import time
@@ -24,7 +25,7 @@ from scipy.sparse import coo_matrix
 
 from src.utils.logging import get_logger
 from src.utils.metrics import normalized_discounted_cumulative_gain
-from src.utils.processing import get_optimization_lists, get_saving_path
+from src.utils.processing import get_optimization_lists, get_saving_path, pandas_to_aggregate
 
 logger = get_logger(name=__name__)
 
@@ -41,6 +42,7 @@ class LightFMBench:
         self.model_params = model_params
         self.learning_time: Optional[float] = None
         self.predict_time: Optional[float] = None
+        self.train_interactions: Optional[coo_matrix] = None
 
     @staticmethod
     def initialize_with_params(model_init_params: Mapping[str, Any]) -> "LightFMBench":
@@ -138,10 +140,10 @@ class LightFMBench:
     def objective(
         trial: Trial,
         params_vary: DictConfig,
-        k_opt: list[int],
+        k_opt: Union[list[int], int],
         interactions_train: coo_matrix,
         weights_train: coo_matrix,
-        interactions_val: coo_matrix,
+        interactions_val: pd.DataFrame,
         num_threads_opt: int,
         num_epochs_opt: int
     ) -> float:
@@ -166,20 +168,22 @@ class LightFMBench:
         initial_model_parameters = get_optimization_lists(params_vary, trial)
         model = LightFMBench.initialize_with_params(initial_model_parameters)
         model.fit(interactions_train, weights_train, num_threads_opt, num_epochs_opt)
-        relevant_ranks = model.get_relevant_ranks(
-            interactions_val, interactions_train, num_threads_opt
-        )
+        top_100_items = model.recommend_k(np.sort(interactions_val["userId"].unique()), 100, interactions_train)
         metrics = []
+        if isinstance(k_opt, int):
+            k_opt = [k_opt]
         for k in k_opt:
-            metrics.append(normalized_discounted_cumulative_gain(relevant_ranks, k))
+            metrics.append(normalized_discounted_cumulative_gain(
+                top_100_items, pandas_to_aggregate(interactions_val), k)
+            )
         return np.mean(metrics)
 
     def fit(
         self,
         interactions: coo_matrix,
         weights: Optional[coo_matrix],
-        num_threads: int,
-        num_epochs: int
+        num_threads: int=20,
+        num_epochs: int=50,
     ) -> None:
         """Wrapper of the model's "fit" method. Time measuring is added
 
@@ -197,6 +201,7 @@ class LightFMBench:
             epochs=num_epochs,
             verbose=True
         )
+        self.train_interactions = interactions.copy()
         self.learning_time = time.time() - start_time
 
     def save_model(self, path: Path) -> None:
@@ -218,7 +223,7 @@ class LightFMBench:
         self,
         test_interactions: coo_matrix,
         train_interactions: coo_matrix,
-        num_threads: int,
+        num_threads: int = 10,
         mp_threads: int = 10
     ) -> np.ndarray:
         """Get relevant ranks for the test interations.
@@ -266,10 +271,9 @@ class LightFMBench:
 
     def recommend_k(
         self,
-        train_interactions: coo_matrix,
+        userids: np.ndarray,
         k: int,
-        user_max: int = -1,
-        num_threads: int = 16
+        train_interactions: Optional[coo_matrix] = None
     ) -> np.ndarray:
         """Get top-k recommended items for each user.
 
@@ -282,37 +286,27 @@ class LightFMBench:
         Returns:
             np.ndarray: Matrix with recommended items.
         """
-        total_users, total_items = train_interactions.shape
-        user_relevant_items = {}
+        start_time = time.time()
+        if train_interactions is None:
+            train_interactions = self.train_interactions
+        total_items = train_interactions.shape[1]
+
+        user_relevant_items = defaultdict(set)
         for user, item in zip(train_interactions.row, train_interactions.col):
-            if user not in user_relevant_items:
-                user_relevant_items[user] = set((item,))
-            else:
-                user_relevant_items[user].add(item)
+            user_relevant_items[user].add(item)
 
-        preds = np.zeros((total_users, k))
-        user_max = total_users if user_max == -1 else user_max
+        preds = np.zeros((len(userids), k))
 
-        # with mp.Pool(mp_threads) as pool:
-        #     for i, row in tqdm(pool.imap(
-        #         self._async_items_generation,
-        #         map(
-        #             lambda i: (i, self.model, user_relevant_items, total_items),
-        #             list(range(min(user_max, total_users)))
-        #         )
-        #     ), total=min(user_max, total_users)):
-        #         preds[i] = row[:k]
-
-        for i in tqdm(range(min(user_max, total_users))):
+        for i, user_id in tqdm(enumerate(userids), total=len(userids)):
             preds_user = self.model.predict(
-                np.ones(total_items) * i, np.arange(total_items), num_threads=16
+                np.ones(total_items) * user_id, np.arange(total_items), num_threads=16
             )
             min_pred = preds_user.min()
-            if i in user_relevant_items:
-                preds_user[list(user_relevant_items[i])] = min_pred
+            if user_id in user_relevant_items:
+                preds_user[list(user_relevant_items[user_id])] = min_pred
             preds_user = np.argsort(preds_user)[::-1]
             preds[i] = preds_user[:k]
-
+        self.predict_time = time.time() - start_time
         return preds
     
     @staticmethod

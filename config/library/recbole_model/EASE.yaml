@@ -11,17 +11,17 @@ recbole_params:
   ITEM_ID_FIELD: 'item_id'
   RATING_FIELD: 'rating'
   TIME_FIELD: 'timestamp'
-  benchmark_filename: ['train', 'val', 'test']
+  benchmark_filename: ['train', 'test', 'test']
   load_col: {'inter': ['user_id', 'item_id', 'rating']}
 
   gpu_id: 0
   train_batch_size: 4096
-  eval_batch_size: 409600
+  eval_batch_size: 4096000
 
   neg_sampling: None
   show_progress: True
 
-enable_optimization: True
+enable_optimization: False
 optuna_optimizer:
   n_trials: 40
   k_optimization: [10]

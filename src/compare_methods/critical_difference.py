@@ -155,7 +155,7 @@ def graph_ranks(avranks, names, p_values, cd=None, cdmethod=None, lowv=None, hig
 
     # calculate height needed height of an image
     minnotsignificant = max(2 * 0.2, linesblank)
-    height = cline + ((k + 1) / 2) * 0.2 + minnotsignificant
+    height = cline + ((k + 1) / 2) * 0.22 + minnotsignificant
 
     fig = plt.figure(figsize=(width+3.7, height+2.7))
     fig.set_facecolor('white')
@@ -316,7 +316,7 @@ def form_cliques_bayes(significance_df: pd.DataFrame, nnames: Sequence[str]):
 def draw_cd_diagram(
     df_perf=None,
     alpha=0.05,
-    bayes_threshold=.9,
+    bayes_threshold=.8,
     title=None, 
     labels=False,
     show_plot: bool = False,
@@ -330,14 +330,14 @@ def draw_cd_diagram(
     """
     p_values, average_ranks, _, _ = wilcoxon_holm(df_perf=df_perf, alpha=alpha)
     bayes_probs = bayesian_test(df_perf, bayes_threshold, nsamples=1000)
-
+    
     graph_ranks(average_ranks.values, average_ranks.keys(), p_values,
-                cd=None, reverse=True, width=9, textspace=1.5, labels=labels, bayes_probs=bayes_probs)
-
+                cd=None, reverse=True, width=10, textspace=1.2, labels=labels, bayes_probs=bayes_probs)
+    
     font = {'family': 'sans-serif',
         'color':  'black',
         'weight': 'normal',
-        'size': 22,
+        'size': 20,
         }
     if title:
         plt.title(title,fontdict=font, y=0.9, x=0.5)
@@ -443,7 +443,7 @@ def wilcoxon_holm(df_perf=None, alpha=0.05):
 def run_CD(
     data: pd.DataFrame, 
     alpha: float = 0.05,
-    draw_plot: bool = False,
+    draw_plot: bool = True,
     save_image: bool = False, 
     image_path: Path = None, 
     image_name: str = 'CD',
@@ -454,14 +454,16 @@ def run_CD(
         'recbole_ItemKNN': 'ItemKNN',
         'recbole_EASE': 'EASE',
         'recbole_MultiVAE': 'MultiVAE',
+        'recbole_LightGCN': 'LightGCN',
+        'recbole_LightGCL': 'LightGCL',
         'implicit_bpr': 'BPR',
         'implicit_als': 'ALS',
         'lightfm': 'LightFM',
         'recbole_SLIMElastic': 'SLIM',
         'most_popular': 'MostPop',
-        'msrec_sasrec': 'SASRec'
+        'random': 'Random',
     }
-    data['Method'] = data['Method'].replace(mapping_dict)
+    data.loc[:, 'Method'] = data['Method'].replace(mapping_dict)
 
     df_res = draw_cd_diagram(
         df_perf=data,

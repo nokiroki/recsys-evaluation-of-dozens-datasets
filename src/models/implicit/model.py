@@ -6,13 +6,12 @@ from functools import partial
 from pathlib import Path
 from typing import Optional, Mapping, Any, List, Union
 
+import pandas as pd
 import numpy as np
 from scipy.sparse import coo_matrix, csr_matrix
 
 import optuna
-import implicit
 from optuna.trial import Trial
-from tqdm import tqdm
 
 from hydra.utils import instantiate
 from omegaconf import DictConfig
@@ -22,8 +21,11 @@ from implicit.bpr import BayesianPersonalizedRanking
 
 from src.utils.logging import get_logger
 from src.utils.metrics import normalized_discounted_cumulative_gain
-from src.utils.processing import get_optimization_lists, get_saving_path
-
+from src.utils.processing import (
+    get_optimization_lists,
+    get_saving_path,
+    pandas_to_aggregate,
+)
 
 logger = get_logger(name=__name__)
 
@@ -114,7 +116,7 @@ class ImplicitBench:
         optuna_params: DictConfig,
         interactions_train: Union[coo_matrix, csr_matrix],
         weights_train: Union[coo_matrix, csr_matrix],
-        interactions_val: Union[coo_matrix, csr_matrix]
+        interactions_val: Union[coo_matrix, csr_matrix],
     ) -> "ImplicitBench":
         """
         Initialize ImplicitBench with hyperparameter optimization using Optuna.
@@ -162,7 +164,7 @@ class ImplicitBench:
         k_opt: List[int],
         interactions_train: Union[coo_matrix, csr_matrix],
         weights_train: Union[coo_matrix, csr_matrix],
-        interactions_val: Union[coo_matrix, csr_matrix],
+        interactions_val: pd.DataFrame,
     ) -> float:
         """
         Objective function for hyperparameter optimization using Optuna.
@@ -174,20 +176,27 @@ class ImplicitBench:
             k_opt (int): Number of top-k items to evaluate.
             interactions_train (coo_matrix): Sparse training interactions matrix.
             weights_train (coo_matrix): Sparse sample weight matrix for training interactions.
-            interactions_val (coo_matrix): Sparse validation interactions matrix.
+            interactions_val (pd.DataFrame): Sparse validation interactions matrix.
 
         Returns:
-            float: Mean rank of the model evaluated on the validation set.
+            float: Mean metrics of the model evaluated on the validation set.
         """
         initial_model_parameters = get_optimization_lists(params_vary, trial)
         model = ImplicitBench.initialize_with_params(
             model_name, initial_model_parameters
         )
         model.fit(interactions_train, weights_train)
-        relevant_ranks = model.get_relevant_ranks(interactions_val, interactions_train)
+        val_userids = np.sort(interactions_val.userId.unique())
+        top_100_items = model.recommend_k(
+            userids=val_userids, k=100, train_interactions=interactions_train
+        )
         metrics = []
         for k in k_opt:
-            metrics.append(normalized_discounted_cumulative_gain(relevant_ranks, k))
+            metrics.append(
+                normalized_discounted_cumulative_gain(
+                    top_100_items, pandas_to_aggregate(interactions_val), k
+                )
+            )
         return np.mean(metrics)
 
     def _process_weight(self, interactions, weights) -> coo_matrix:
@@ -250,8 +259,8 @@ class ImplicitBench:
 
     def fit(
         self,
-        interactions: coo_matrix,
-        weights: Optional[coo_matrix] = None,
+        interactions: Union[coo_matrix, csr_matrix],
+        weights: Optional[Union[coo_matrix, csr_matrix]] = None,
         show_progress: bool = True,
         callback=None,
     ) -> None:
@@ -278,7 +287,7 @@ class ImplicitBench:
         self.model.fit(
             user_items=weight_data.tocsr(),
             show_progress=show_progress,
-            callback=callback
+            callback=callback,
         )
         self.train_interactions = interactions.tocsr()
         self.learning_time = time.time() - start_time
@@ -300,104 +309,11 @@ class ImplicitBench:
         with open(model_dir.joinpath("params.pcl"), "wb") as file:
             pickle.dump(self.model_params, file)
 
-    @staticmethod
-    def _implicit_recommendation_to_rank(
-        ids: np.ndarray, max_test_items: int, test_user_items: np.ndarray
-    ) -> np.ndarray:
-        """
-        Convert implicit recommendations to rank.
-
-        Args:
-            ids (np.ndarray): Array representing the sorted relevant items.
-            test_user_items (np.ndarray): Array representing the test user-item interactions.
-
-        Returns:
-            np.ndarray: Array of ranks for each user in the test set.
-            Starts from 0 to max_test_items.
-        """
-        # Create an array of ranks using the argsort function
-        ranks = np.argsort(ids, axis=1)
-
-        # Make np.ndarrays of ranks, fill rows by -1 if len is less than max_test_items
-        ranks[~test_user_items.astype(bool)] = -1
-        ranks = np.sort(ranks, axis=1)[:, ::-1][:, :max_test_items]
-
-        return ranks
-
-    def get_relevant_ranks(
-        self,
-        test_interactions: coo_matrix,
-        train_interactions: Optional[coo_matrix] = None
-    ) -> np.ndarray:
-        """
-        Get relevant ranks for the test interactions.
-
-        Args:
-            train_interactions (coo_matrix): Training interactions matrix (user-item interactions).
-            test_interactions (coo_matrix): Test interactions matrix (user-item interactions).
-
-        Returns:
-            np.ndarray: Array of relevant ranks for each user in the test set.
-        """
-        # Converting to CSR
-        if train_interactions is not None:
-            train_interactions = train_interactions.tocsr()
-        else:
-            train_interactions = self.train_interactions.tocsr()
-        test_interactions = test_interactions.tocsr()
-
-        # Extract number of users and items
-        userids, items = train_interactions.shape
-
-        # Get the maximum number of non-zero test set
-        max_items = test_interactions.getnnz(axis=1).max()
-
-        # Use batches
-        batch_size = 1024
-        start_idx = 0
-        ranks = np.empty((0, max_items), dtype="int32")
-
-        # get an array of userids that have at least one item in the test set
-        to_generate = np.arange(userids, dtype="int32")
-        to_generate = to_generate[np.ediff1d(test_interactions.indptr) > 0]
-
-        start_time = time.time()
-
-        with tqdm(
-            (len(to_generate) + batch_size - 1) // batch_size,
-            desc="Generating recommendations", unit="batch"
-        ) as pbar:
-            while start_idx < len(to_generate):
-                batch = to_generate[start_idx : start_idx + batch_size]
-
-                # make recommendations on cpu due to large datasets
-                if isinstance(
-                    self.model,
-                    (implicit.gpu.als.AlternatingLeastSquares,
-                    implicit.gpu.bpr.BayesianPersonalizedRanking)
-                    ):
-                    self.model = self.model.to_cpu()
-                else:
-                    pass
-
-                ids_batch, _ = self.model.recommend(batch, train_interactions[batch], N=items)
-                start_idx += batch_size
-
-                ranks_batch = self._implicit_recommendation_to_rank(
-                    ids_batch, max_items, test_interactions[batch].toarray()
-                )
-                # Concatenate the new array to the result_array
-                ranks = np.concatenate((ranks, ranks_batch), axis=0)
-
-                pbar.update(1)
-
-        self.predict_time = time.time() - start_time
-
-        return ranks
-
     def recommend_k(
         self,
         k: int,
+        userids: np.ndarray,
+        train_interactions: Union[coo_matrix, csr_matrix, None] = None,
         filter_already_liked_items: bool = True,
         filter_items=None,
         recalculate_user: bool = False,
@@ -406,10 +322,10 @@ class ImplicitBench:
         Recommend top k items for users.
 
         Args:
-            k (int): The number of results to return.
-            train_interactions (csr_matrix or coo_matrix):
-                Sparse matrix of shape (users, number_items)
-                representing the user-item interactions for training.
+            k (int): Number of items to recommend.
+            userids (np.ndarray): Array of user IDs to generate recommendations for.
+            train_interactions (csr_matrix or coo_matrix, optional): User-item interaction matrix.
+                Defaults to the instance's train_interactions attribute if None.
             filter_already_liked_items (bool, optional): When True, don't return items present in
                 the training set that were rated by the specified user.
             filter_items (array_like, optional): List of extra item IDs to filter out from
@@ -420,14 +336,26 @@ class ImplicitBench:
         Returns:
             np.ndarray: 2-dimensional array with a row of item IDs for each user.
         """
-        train_interactions = self.train_interactions[np.ediff1d(self.train_interactions.indptr) > 0]
-        userids = np.arange(train_interactions.shape[0])
+        if k <= 0 or not isinstance(k, int):
+            raise ValueError("'k' must be a positive integer.")
+
+        if train_interactions is None:
+            train_interactions = self.train_interactions
+
+        if not isinstance(train_interactions, csr_matrix):
+            train_interactions = train_interactions.tocsr()
+
+        start_time = time.time()
+        
         ids, _ = self.model.recommend(
             userid=userids,
-            user_items=train_interactions.tocsr(),
+            user_items=train_interactions[userids],
             N=k,
             filter_already_liked_items=filter_already_liked_items,
             filter_items=filter_items,
             recalculate_user=recalculate_user,
         )
+
+        self.predict_time = time.time() - start_time
+
         return ids

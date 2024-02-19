@@ -135,30 +135,34 @@ class ClassicDataset(BaseDataset):
 
         raw_file = self._read_format(raw_file_path)
 
-        user_id: str = properties['user_column']
-        item_id: str = properties['item_column']
-        rating_col: str = properties['rating_column']
+        raw_file.rename(columns={
+            properties["user_column"]: "userId",
+            properties["item_column"]: "itemId",
+            properties["rating_column"]: "rating",
+            properties["date_column"]: "timestamp"
+        },  inplace=True)
+
         positive_th: float = properties['positive_threshold']
         min_item_ratings: int = properties['min_item_ratings']
         min_user_ratings: int = properties['min_user_ratings']
 
         # Drop repeated ratings
         logger.info('Dropping duplicates')
-        raw_file.drop_duplicates([user_id, item_id], inplace=True)
+        raw_file.drop_duplicates(["userId", "itemId"], inplace=True)
 
         # Create implicit binary ratings (relevant / not relevant)
         logger.info('Dropping not relevant elements')
-        raw_file['implicit_rating'] = (raw_file[rating_col] >= positive_th).astype(np.int32)
+        raw_file['implicit_rating'] = (raw_file["rating"] >= positive_th).astype(np.int32)
         raw_file.drop(index=raw_file[raw_file['implicit_rating'] == 0].index, inplace=True)
 
         # Item filtering
         logger.info('Item filtering')
-        raw_file = self._filter(raw_file, item_id, rating_col, min_item_ratings)
+        raw_file = self._filter(raw_file, "itemId", "rating", min_item_ratings)
         # User filtering
         logger.info('User filtering')
-        raw_file = self._filter(raw_file, user_id, rating_col, min_user_ratings)
+        raw_file = self._filter(raw_file, "userId", "rating", min_user_ratings)
 
-        self._useritem_mapping(raw_file, user_id, item_id, data_folder)
+        self._useritem_mapping(raw_file, "userId", "itemId", data_folder)
 
         return raw_file
 

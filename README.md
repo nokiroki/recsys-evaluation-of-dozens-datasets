@@ -1,10 +1,9 @@
 # Recsys Evaluation Of Dozen Datasets
 **Authors:** Anonym
 
-This repository implements the methodology presented in the article **Improving RecSys Evaluation: a Dozens-of-datasets Approach to
-Reliable Benchmarking** (*In progress*).
+This repository implements the methodology presented in the article **From Variability to Stability: Advancing RecSys Banchmarking Practices** (*In progress*).
 
-Code allows you to run different algorithms with a preset of $29$ datasets from a variety of domains.
+Code allows you to run different algorithms with a preset of $30$ datasets from a variety of domains.
 
 Repository supports a lot of different RecSys libraries with different models. A full list will be provided later, but we also support the implementation of the new models. Each model can be optimized via the Optuna framework.
 
@@ -12,14 +11,11 @@ To get the leaderboard, we implemented all the aggregation methods mentioned in 
 
 Moreover, results and pre-trained models will be saved.
 
+All experiments and results mentioned in the article can be reproduced in the `/notebooks` directory.
+
 ## Abstract
 
-The field of Recommender Systems (RecSys) advances with the continuous introduction of new algorithms.
-Meanwhile, in this domain, to prove the superiority of a new approach, researchers often constrain themselves to a few datasets and baselines, providing limited experimental evidence.
-In machine learning, existing benchmarks enable a principled comparison of various methods across diverse scenarios, yet such benchmarks are mainly absent in the RecSys domain.
-Our paper proposes a comprehensive benchmarking methodology for evaluating and ranking RecSys methods.
-Specifically, we: (a) collect and prepare $27$ open datasets from various domains and introduce $2$ novel ones for benchmarking; (b) establish a pipeline to extract evaluation metrics for a set of ten recommendation algorithms with a straightforward introduction of new methods; and (c) design a principled aggregation methodology for the RecSys context, enabling an accurate ranking.
-Through experimental analysis, we identify how evaluation procedures influence algorithm rankings, illustrate the relationship between algorithm performance and dataset characteristics, and identify the top-performing algorithms.
+In the rapidly evolving domain of Recommender Systems (RecSys), new algorithms frequently claim state-of-the-art performance based on evaluations over a limited set of arbitrarily selected datasets. However, this approach may fail to holistically reflect their effectiveness due to the significant impact of dataset characteristics on algorithm performance. Addressing this deficiency, this paper introduces a novel benchmarking methodology to facilitate a fair and robust comparison of RecSys algorithms, thereby advancing evaluation practices. By utilizing a diverse set of $30$ open datasets, including two introduced in this work, and evaluating $11$ collaborative filtering algorithms across $9$ metrics, we critically examine the influence of dataset characteristics on algorithm performance. We further investigate the feasibility of aggregating outcomes from multiple datasets into a unified ranking. Through rigorous experimental analysis, we validate the reliability of our methodology under the variability of datasets, offering a benchmarking strategy that balances quality and computational demands. This methodology enables a fair yet effective means of evaluating RecSys algorithms, providing valuable guidance for future research endeavors.
 
 ## Prerequirements
 
@@ -30,15 +26,15 @@ As some libraries have compatibility issues, we strongly recommend to use a dock
 3. Launch the `docker_scripts/launch_container`.
 4. Now you can simply attach to the running container and launch any experiment you want.
 
-## Run the experiments
+## Run the models
 
-To set up the parameters of your experiment, one should modify the YAML configuration files located in the `config` folder. Each file corresponds to a single module, such as a dataset, library, or model. You can explore these files for more details. To run experiments, use the following command:
+To set up the parameters of your model, one should modify the YAML configuration files located in the `config` folder. Each file corresponds to a single module, such as a dataset, library, or model. You can explore these files for more details. To run fitting process, use the following command:
 
 ```
 python main.py
 ```
 
-Additionally, you can use [Hydra](https://hydra.cc/docs/intro/) notation to modify parameters in the console (for example, running multiple experiments).
+Additionally, you can use [Hydra](https://hydra.cc/docs/intro/) notation to modify parameters in the console (for example, running multiple models).
 
 ## Supported models
 
@@ -53,4 +49,6 @@ Additionally, you can use [Hydra](https://hydra.cc/docs/intro/) notation to modi
 | | ItemKNN | |
 | | MultiVAE | |
 | | SLIMElastic | |
+| | LightGCL | |
+| | LightGCN | |
 | **MSRec** | SASRec | https://github.com/recommenders-team/recommenders |

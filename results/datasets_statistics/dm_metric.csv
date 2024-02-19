@@ -1,0 +1,5 @@
+,Methods,Recall@K
+0,bpr,0.393
+1,bpr_optimized,1.44
+2,als,1.496
+3,als_optimized,1.756

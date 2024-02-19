@@ -1,0 +1,88 @@
+name: sasrec
+runner:
+  _target_: src.SasRecRunner
+
+seed: &seed 42
+
+model:
+  sasrec_params:
+    maxlen: 200
+    hidden_units: 64
+    num_blocks: 2
+    num_heads: 1
+    dropout_rate: 0.1
+    item_num: &item_num ???
+
+  dataset:
+    max_length: 50
+    # num_negatives:
+    full_negative_sampling: False
+
+  dataloader:
+    batch_size: 128
+    test_batch_size: 256
+    num_workers: 8
+    validation_size: 10000
+
+  seqrec_module:
+    lr: 0.001
+    predict_top_k: 10  # this value is used for validation
+    filter_seen: True
+    l2_emb: 0.
+    # loss: bce
+  patience: 10
+  sampled_metrics: False
+  top_k_metrics: [10, 100]
+  trainer_params:
+    max_epochs: &max_epochs 100
+    deterministic: True
+
+learning:
+  num_threads: 20
+  num_epochs: *max_epochs
+
+saved_model: False
+saved_model_name: model_0
+
+enable_optimization: True
+optuna_optimizer:
+  n_trials: 40
+  k_optimization: [10]
+  sampler:
+    _target_: optuna.samplers.TPESampler
+    seed: *seed
+  pruner:
+    _target_: optuna.pruners.MedianPruner
+  hyperparameters_vary:
+    const:
+      item_num: *item_num
+    choice:
+      - name: num_heads
+        choices:
+          - 1
+          - 2
+          - 4
+      - name: hidden_units
+        choices:
+          - 32
+          - 64
+          - 128
+          - 256
+          - 512
+    int:
+      - name: num_blocks
+        low: 1
+        high: 5
+        step: 1
+      - name: maxlen
+        low: 50
+        high: 200
+        step: 25
+    float:
+      - name: dropout_rate
+        low: 0.1
+        high: 0.5
+      - name: l2_emb
+        low: .000001
+        high: 0.5
+        log: True

@@ -1,0 +1,77 @@
+name: LightGCL
+
+model:
+  learning_rate: 1e-3
+  embedding_size: 256             # (int) The embedding size of users and items.
+  n_layers: 2                     # (int) The number of layers in LightGCL.
+  dropout: 0.1                    # (float) The dropout ratio.
+  temp: 2.                        # (float) The temperature in softmax.
+  lambda1: 1e-04                  # (float) The hyperparameter to control the strengths of SSL.
+  lambda2: 1e-07                  # (float) The L2 regularization weight.
+  q: 5                            # (int) A slightly overestimated rank of the adjacency matrix.
+
+saved_model: False
+saved_model_name: model_0
+
+recbole_params:
+  USER_ID_FIELD: 'user_id'
+  ITEM_ID_FIELD: 'item_id'
+  RATING_FIELD: 'rating'
+  TIME_FIELD: 'timestamp'
+  benchmark_filename: ['train', 'test', 'test']
+  load_col: {'inter': ['user_id', 'item_id', 'rating']}
+
+  gpu_id: 0
+  train_batch_size: 30384
+  eval_batch_size: 303840000
+
+  neg_sampling: None
+  epochs: 15
+  show_progress: True
+
+enable_optimization: True
+optuna_optimizer:
+  n_trials: 5
+  k_optimization: [10]
+  sampler:
+    _target_: optuna.samplers.TPESampler
+    seed: 42
+  pruner:
+    _target_: optuna.pruners.MedianPruner
+  hyperparameters_vary:
+    int:
+      - name: embedding_size
+        low: 32
+        high: 256
+        step: 32
+      - name: q
+        low: 3
+        high: 10
+        step: 1
+      - name: n_layers
+        low: 1
+        high: 4
+        step: 1
+    float:
+      - name: learning_rate
+        low: 1e-5
+        high: 1e-2
+        log: True
+      - name: lambda1
+        low: 1e-7
+        high: 0.3
+        log: True
+      - name: lambda2
+        low: 1e-8
+        high: 1e-4
+        log: True
+      - name: temp
+        low: 0.1
+        high: 5
+        log: True
+    choice:
+      - name: dropout
+        choices:
+          - 0.0
+          - 0.1
+          - 0.25

@@ -1,0 +1,55 @@
+name: LightGCN
+
+model:
+  embedding_size: 64
+  n_layers: 2
+  reg_weight: 0.00001
+  learning_rate: 0.001
+
+saved_model: False
+saved_model_name: model_0
+
+recbole_params:
+  USER_ID_FIELD: 'user_id'
+  ITEM_ID_FIELD: 'item_id'
+  RATING_FIELD: 'rating'
+  TIME_FIELD: 'timestamp'
+  benchmark_filename: ['train', 'test', 'test']
+  load_col: {'inter': ['user_id', 'item_id', 'rating']}
+
+  gpu_id: 0
+  train_batch_size: 20000
+  eval_batch_size: 4096000
+
+  neg_sampling: None
+  epochs: 300
+  show_progress: True
+
+enable_optimization: True
+optuna_optimizer:
+  n_trials: 40
+  k_optimization: [10]
+  sampler:
+    _target_: optuna.samplers.TPESampler
+    seed: 42
+  pruner:
+    _target_: optuna.pruners.MedianPruner
+  hyperparameters_vary:
+    int:
+      - name: embedding_size
+        low: 32
+        high: 256
+        step: 32
+      - name: n_layers
+        low: 1
+        high: 4
+        step: 1
+    float:
+      - name: reg_weight
+        low: 0.00001
+        high: 0.001
+        log: True
+      - name: learning_rate
+        low: .0001
+        high: .01
+        log: True

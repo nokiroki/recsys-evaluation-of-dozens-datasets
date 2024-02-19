@@ -7,14 +7,22 @@ import pandas as pd
 import torch
 
 from src.preprocessing import ClassicDataset
-from src.models.sasrec import SASRecAdpBench
-from src.utils.metrics import run_all_metrics, coverage
-from src.utils.processing import data_split, save_results
+from src.models.sasrec import SASRecBench
+from src.utils.metrics import run_all_metrics, coverage, novelty, diversity
+from src.utils.processing import (
+    data_split,
+    save_results,
+    train_test_split,
+    pandas_to_sparse,
+    pandas_to_aggregate,
+    pandas_to_recbole,
+)
 from src.utils.logging import get_logger
 from .base_runner import BaseRunner
 
 from hydra import compose, initialize
 from omegaconf import OmegaConf
+from pytorch_lightning import seed_everything
 
 from src.preprocessing.data_preporation import load_dataset
 
@@ -26,34 +34,26 @@ class SasRecRunner(BaseRunner):
     def run(cfg: DictConfig) -> None:
         # get configs
         cfg_data = cfg["dataset"]
-        cfg_model = cfg["library"]["msrec_model"]
-
-        # extract raw ratings
-        if not Path(cfg_data["data_src"], cfg_data["ratings_file"]).exists():
-            logger.info("Raw file does not exist, downloading...")
-            load_dataset(cfg_data)
-
-        item_sequences = pd.read_parquet(
-            Path(cfg_data["data_src"], cfg_data["ratings_file"])
-        )
+        cfg_model = cfg["library"]
 
         # pre-process raw ratings
         dataset = ClassicDataset()
         dataset.prepare(cfg_data)
 
-        # add mandatory values
-        cfg_model.model["user_num"] = max(
-            dataset.prepared_data[cfg_data["user_column"]]
-        )
-        cfg_model.model["item_num"] = max(
-            dataset.prepared_data[cfg_data["item_column"]]
+        dataset_folder = Path('/'.join(("preproc_data", cfg_data["name"])))
+
+        seed_everything(cfg_model['seed'], workers=True,)
+
+        data_train, data_test = SasRecRunner._load_or_split_data(
+            cfg_data, dataset_folder, dataset
         )
 
-        # split data into samples
-        train_set, \
-        val_set, \
-        test_set = data_split(
-            dataset.prepared_data, cfg_data, return_format='pandas'
+        shape = SasRecRunner._get_shape(data_train,)
+
+        cfg_model.model.sasrec_params['item_num'] = int(shape[1] - 1)
+
+        train_interactions_sparse, _ = pandas_to_sparse(
+            data_train, weighted=True, shape=shape, sparse_type="coo",
         )
 
         model_folder = Path(
@@ -68,74 +68,85 @@ class SasRecRunner(BaseRunner):
         )
 
         if cfg_model["saved_model"]:
-            sasrec_bench = SASRecAdpBench.initialize_saved_model(
+            bench = SASRecBench.initialize_saved_model(
                 model_folder.joinpath(cfg_model["saved_model_name"])
             )
         else:
-            sasrec_bench = None
+            bench = None
 
-        logger.debug(
-            f"MIN DATA IDX: {min(dataset.prepared_data[cfg_data['item_column']])}"
-        )
-
-        if sasrec_bench is None:
+        if bench is None:
             if cfg_model["enable_optimization"]:
-                sasrec_bench = SASRecAdpBench.initialize_with_optimization(
+                cfg_model.optuna_optimizer.hyperparameters_vary.const['item_num'] = int(shape[1] - 1)
+                bench = SASRecBench.initialize_with_optimization(
                     cfg_model["optuna_optimizer"],
                     cfg_model,
-                    train_set,
-                    val_set,
+                    data_train,
                     model_folder,
                 )
                 was_optimized = True
             else:
-                sasrec_bench = SASRecAdpBench.initialize_with_params(cfg_model["model"])
+                bench = SASRecBench.initialize_with_params(cfg_model["model"])
                 was_optimized = False
 
-            sasrec_bench.fit(train_set, val_set, **cfg_model["learning"])
-            sasrec_bench.save_model(
+            bench.fit(data_train, **cfg_model["learning"])
+            bench.save_model(
                 model_folder.joinpath(cfg_model["saved_model_name"])
             )
 
-        ranks = sasrec_bench.get_relevant_ranks(
-            test_set,
-            test=True,
-        )
-        top_100_items = sasrec_bench.recommend_k(test_set, True, 100)
-
-        metrics = run_all_metrics(ranks, [5, 10, 20, 100])
-        coverage_metrics = []
-        for k in (5, 10, 20, 100):
-            coverage_metrics.append(
-                coverage(
-                    top_100_items,
-                    len(np.unique(test_set[cfg_data["item_column"]])),
-                    k,
-                )
-            )
-
-        metrics_df = pd.DataFrame(
-            metrics,
-            index=[5, 10, 20, 100],
-            columns=(
-                "Precision@k",
-                "Recall@K",
-                "MAP@K",
-                "nDCG@k",
-                "MRR@k",
-                "HitRate@k",
-            ),
-        )
-        metrics_df["Coverage@K"] = coverage_metrics
-
-        metrics_df["Time_fit"] = sasrec_bench.learning_time
-        metrics_df["Time_predict"] = sasrec_bench.predict_time
+        top_100_items = bench.recommend_k(data_train, 100)
+        metrics_df = SasRecRunner._calculate_metrics(top_100_items, data_test, train_interactions_sparse, bench, cfg_data)
 
         save_results(
             (metrics_df, f"results_wasOptimized_{was_optimized}"),
             (top_100_items, f"items_wasOptimized_{was_optimized}"),
-            (ranks, f"ranks_wasOptimized_{was_optimized}"),
             cfg["results_folder"],
             cfg_model["name"],
-            cfg_data["name"]
+            cfg_data["name"],
         )
+
+    @staticmethod
+    def _get_shape(dataset):
+        return (
+            dataset["userId"].max() + 1,
+            dataset["itemId"].max() + 1,
+        )
+
+    @staticmethod
+    def _load_or_split_data(cfg_data, dataset_folder, dataset):
+        if (
+            dataset_folder.joinpath("train.parquet").exists() and
+            dataset_folder.joinpath("test.parquet").exists()
+        ):
+            data_train = pd.read_parquet(dataset_folder.joinpath("train.parquet"))
+            data_test = pd.read_parquet(dataset_folder.joinpath("test.parquet"))
+        else:
+            data_train, data_test = train_test_split(
+                dataset.prepared_data,
+                test_size=cfg_data["splitting"]["test_size"],
+                splitting_type=cfg_data["splitting"]["strategy"],
+            )
+            data_train.to_parquet(dataset_folder.joinpath("train.parquet"))
+            data_test.to_parquet(dataset_folder.joinpath("test.parquet"))
+        return data_train, data_test
+
+    @staticmethod
+    def _calculate_metrics(top_100_items, data_test, train_interactions, model, cfg_data):
+        metrics = run_all_metrics(top_100_items, pandas_to_aggregate(data_test,), [5, 10, 20, 100])
+        coverage_metrics, novelty_metrics, diversity_metrics = [], [], []
+        for k in (5, 10, 20, 100):
+            coverage_metrics.append(coverage(top_100_items, (train_interactions.getnnz(axis=0) > 0).sum(), k))
+            novelty_metrics.append(novelty(top_100_items.astype(np.int32), train_interactions.tocsc(), k))
+            diversity_metrics.append(diversity(top_100_items.astype(np.int32), train_interactions.tocsc(), k))
+
+
+        metrics_df = pd.DataFrame(metrics, index=[5, 10, 20, 100], columns=(
+            "Precision@k", "Recall@K", "MAP@K", "nDCG@k", "MRR@k", "HitRate@k",
+        ))
+        metrics_df["Coverage@K"] = coverage_metrics
+        metrics_df["Novelty@K"] = novelty_metrics
+        metrics_df["Diversity@k"] = diversity_metrics
+
+        metrics_df["Time_fit"] = model.learning_time
+        metrics_df["Time_predict"] = model.predict_time
+
+        return metrics_df

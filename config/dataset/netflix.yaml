@@ -1,6 +1,6 @@
 name: netflix
 data_src: data/netflix
-ratings_file: ratings_small.parquet
+ratings_file: ratings.parquet
 user_column: userId
 item_column: movieId
 rating_column: rating

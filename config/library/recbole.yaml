@@ -1,5 +1,5 @@
 defaults:
-  - recbole_model: ItemKNN
+  - recbole_model: LightGCL
   - _self_
 
 name: recbole

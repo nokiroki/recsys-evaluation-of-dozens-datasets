@@ -1,6 +1,7 @@
 """SASRec model module."""
 import numpy as np
 import torch
+from torch import nn
 
 
 class PointWiseFeedForward(torch.nn.Module):
@@ -38,103 +39,110 @@ class PointWiseFeedForward(torch.nn.Module):
         return outputs
 
 
-# pls use the following self-made multihead attention layer
-# in case your pytorch version is below 1.16 or for other reasons
-# https://github.com/pmixer/TiSASRec.pytorch/blob/master/model.py
-
-
-class SASRec(torch.nn.Module):
-    """SASRec torch model."""
+class SASRec(nn.Module):
+    """Adaptation of code from
+    https://github.com/pmixer/SASRec.pytorch.
+    """
 
     def __init__(
         self,
-        user_num: int,
-        item_num: int,
-        device: torch.device,
-        hidden_units: int,
-        maxlen: int,
-        dropout_rate: float,
-        num_heads: int,
-        num_blocks: int,
-    ) -> None:
-        """Init SASRec model.
+        item_num,
+        maxlen=128,
+        hidden_units=64,
+        num_blocks=1,
+        num_heads=1,
+        dropout_rate=0.1,
+        initializer_range=0.02,
+        add_head=True,
+    ):
+        super(SASRec, self).__init__()
 
-        Args:
-            user_num (int): number of users.
-            item_num (int): number of items.
-            device (torch.device): torch device to train.
-            hidden_units (int): hidden size of model.
-            maxlen (int): max length of sequence.
-            dropout_rate (float): rate of dropout.
-            num_heads (int): number of heads in transformer.
-            num_blocks (int): number of transformer blocks.
-        """
-        super().__init__()
-
-        self.user_num = user_num
         self.item_num = item_num
-        self.dev = device
+        self.maxlen = maxlen
+        self.hidden_units = hidden_units
+        self.num_blocks = num_blocks
+        self.num_heads = num_heads
+        self.dropout_rate = dropout_rate
+        self.initializer_range = initializer_range
+        self.add_head = add_head
 
-        # TODO: loss += l2_emb for regularizing embedding vectors during training
-        # https://stackoverflow.com/questions/42704283/adding-l1-l2-regularization-in-pytorch
-        self.item_emb = torch.nn.Embedding(
-            self.item_num + 1, hidden_units, padding_idx=0
-        )
-        self.pos_emb = torch.nn.Embedding(maxlen, hidden_units)  # TO IMPROVE
-        self.emb_dropout = torch.nn.Dropout(p=dropout_rate)
+        self.item_emb = nn.Embedding(item_num + 1, hidden_units, padding_idx=0)
+        self.pos_emb = nn.Embedding(maxlen, hidden_units)
+        self.emb_dropout = nn.Dropout(dropout_rate)
 
-        self.attention_layernorms = torch.nn.ModuleList()  # to be Q for self-attention
-        self.attention_layers = torch.nn.ModuleList()
-        self.forward_layernorms = torch.nn.ModuleList()
-        self.forward_layers = torch.nn.ModuleList()
+        self.attention_layernorms = nn.ModuleList()  # to be Q for self-attention
+        self.attention_layers = nn.ModuleList()
+        self.forward_layernorms = nn.ModuleList()
+        self.forward_layers = nn.ModuleList()
 
-        self.last_layernorm = torch.nn.LayerNorm(hidden_units, eps=1e-8)
+        self.last_layernorm = nn.LayerNorm(hidden_units, eps=1e-8)
 
         for _ in range(num_blocks):
-            new_attn_layernorm = torch.nn.LayerNorm(hidden_units, eps=1e-8)
+            new_attn_layernorm = nn.LayerNorm(hidden_units, eps=1e-8)
             self.attention_layernorms.append(new_attn_layernorm)
 
-            new_attn_layer = torch.nn.MultiheadAttention(
+            new_attn_layer = nn.MultiheadAttention(
                 hidden_units, num_heads, dropout_rate
             )
             self.attention_layers.append(new_attn_layer)
 
-            new_fwd_layernorm = torch.nn.LayerNorm(hidden_units, eps=1e-8)
+            new_fwd_layernorm = nn.LayerNorm(hidden_units, eps=1e-8)
             self.forward_layernorms.append(new_fwd_layernorm)
 
             new_fwd_layer = PointWiseFeedForward(hidden_units, dropout_rate)
             self.forward_layers.append(new_fwd_layer)
 
-    def log2feats(self, log_seqs: list[list[int]]) -> torch.Tensor:
-        """Transform sequence to embeddings.
+        # parameters initialization
+        self.apply(self._init_weights)
 
-        Args:
-            log_seqs (list[list[int]]): input data.
+    def _init_weights(self, module):
+        """Initialize weights.
 
-        Returns:
-            torch.Tensor: transformed data.
+        Examples:
+        https://github.com/huggingface/transformers/blob/v4.25.1/src/transformers/models/gpt2/modeling_gpt2.py#L454
+        https://recbole.io/docs/_modules/recbole/model/sequential_recommender/sasrec.html#SASRec
         """
-        seqs = self.item_emb(torch.LongTensor(log_seqs).to(self.dev))
+
+        if isinstance(module, (nn.Linear, nn.Conv1d)):
+            module.weight.data.normal_(mean=0.0, std=self.initializer_range)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.Embedding):
+            module.weight.data.normal_(mean=0.0, std=self.initializer_range)
+            if module.padding_idx is not None:
+                module.weight.data[module.padding_idx].zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
+
+    # parameter attention mask added for compatibility with Lightning module, not used
+    def forward(self, input_ids, attention_mask):
+        seqs = self.item_emb(input_ids.type(torch.LongTensor).to(attention_mask.device))
         seqs *= self.item_emb.embedding_dim**0.5
-        positions = np.tile(np.array(range(log_seqs.shape[1])), [log_seqs.shape[0], 1])
-        seqs += self.pos_emb(torch.LongTensor(positions).to(self.dev))
+        positions = np.tile(
+            np.array(range(input_ids.shape[1])), [input_ids.shape[0], 1]
+        )
+        # need to be on the same device
+        seqs += self.pos_emb(torch.LongTensor(positions).to(seqs.device))
         seqs = self.emb_dropout(seqs)
 
-        timeline_mask = torch.BoolTensor(log_seqs == 0).to(self.dev)
+        timeline_mask = torch.Tensor(input_ids == 0)
         seqs *= ~timeline_mask.unsqueeze(-1)  # broadcast in last dim
 
         tl = seqs.shape[1]  # time dim len for enforce causality
+        # need to be on the same device
         attention_mask = ~torch.tril(
-            torch.ones((tl, tl), dtype=torch.bool, device=self.dev)
+            torch.ones((tl, tl), dtype=torch.bool).to(seqs.device)
         )
 
-        for i, _ in enumerate(self.attention_layers):
+        for i in range(len(self.attention_layers)):
             seqs = torch.transpose(seqs, 0, 1)
             Q = self.attention_layernorms[i](seqs)
             mha_outputs, _ = self.attention_layers[i](
                 Q, seqs, seqs, attn_mask=attention_mask
             )
-
+            # key_padding_mask=timeline_mask
+            # need_weights=False) this arg do not work?
             seqs = Q + mha_outputs
             seqs = torch.transpose(seqs, 0, 1)
 
@@ -142,57 +150,8 @@ class SASRec(torch.nn.Module):
             seqs = self.forward_layers[i](seqs)
             seqs *= ~timeline_mask.unsqueeze(-1)
 
-        log_feats = self.last_layernorm(seqs)  # (U, T, C) -> (U, -1, C)
+        outputs = self.last_layernorm(seqs)  # (U, T, C) -> (U, -1, C)
+        if self.add_head:
+            outputs = torch.matmul(outputs, self.item_emb.weight.transpose(0, 1))
 
-        return log_feats
-
-    def forward(
-        self,
-        user_ids: list[int],
-        log_seqs: list[list[int]],
-        pos_seqs: list[list[int]],
-        neg_seqs: list[list[int]],
-    ):  # for training
-        """Forward method.
-
-        Args:
-            user_ids (list[int]): unused data.
-            log_seqs (list[list[int]]): input data.
-            pos_seqs (list[list[int]]): positive examples.
-            neg_seqs (list[list[int]]): negative examples.
-
-        Returns:
-            (torch.Tensor, torch.Tensor): output data.
-        """
-        log_feats = self.log2feats(log_seqs)  # user_ids hasn't been used yet
-
-        pos_embs = self.item_emb(torch.LongTensor(pos_seqs).to(self.dev))
-        neg_embs = self.item_emb(torch.LongTensor(neg_seqs).to(self.dev))
-
-        pos_logits = (log_feats * pos_embs).sum(dim=-1)
-        neg_logits = (log_feats * neg_embs).sum(dim=-1)
-
-        return pos_logits, neg_logits
-
-    def predict(self, user_ids, log_seqs, item_indices):  # for inference
-        """Predict items.
-
-        Args:
-            user_ids (list[int]): unused data.
-            log_seqs (list[list[int]]): input data.
-            item_indices (list[int]): item indices.
-
-        Returns:
-            list[float]: logits.
-        """
-        log_feats = self.log2feats(log_seqs)  # user_ids hasn't been used yet
-
-        final_feat = log_feats[:, -1, :]  # only use last QKV classifier, a waste
-
-        item_embs = self.item_emb(
-            torch.LongTensor(item_indices).to(self.dev)
-        )  # (U, I, C)
-
-        logits = item_embs.matmul(final_feat.unsqueeze(-1)).squeeze(-1)
-
-        return logits
+        return outputs

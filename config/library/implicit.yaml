@@ -3,4 +3,4 @@ runner:
   _target_: src.ImplicitRunner
 
 defaults:
-  - implicit_model: als
+  - implicit_model: bpr

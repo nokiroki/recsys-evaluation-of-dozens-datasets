@@ -1,10 +1,14 @@
 defaults:
-  - dataset: foursquare
-  - library: implicit
+  - dataset: mts
+  - library: recbole
   - _self_
 results_folder: results
 
 default_dataset_parameters:
+  user_column: userId
+  item_column: itemId
+  rating_column: rating
+  date_column: timestamp
   min_user_rating: 5
   min_item_rating: 5
   splitting:

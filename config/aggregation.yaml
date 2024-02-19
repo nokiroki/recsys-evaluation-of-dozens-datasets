@@ -1,0 +1,12 @@
+aggregation_method: [cd, dm, bayes]
+
+key_metric: ndcg # [ndcg, precision, recall, diversity, mrr, hitrate, coverage, novelty]
+key_k: 10
+
+metric_path: results/metrics
+methods_with_subfolders: [implicit, recbole, replay]
+save_path: results/aggregation
+drop_minor_datasets: True
+drop_minor_methods: False
+
+filter_datasets: [foursquare, kuairec_small, douban_music, douban_books, reddit, movielens_1m, douban_movies, kuairec_full, amazon_mi, rekko, brightkite, amazon_finefoods, beeradvocate, ratebeer, epinions, tafeng, movielens_10m, dianping, food, movielens_20m, retail, mts_library, amazon_cds, goodreads, gowalla, amazon_tv, yelp, netflix, sber_zvuk, sber_smm]

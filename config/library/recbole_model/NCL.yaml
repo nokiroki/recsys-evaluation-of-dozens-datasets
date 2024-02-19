@@ -1,0 +1,66 @@
+name: NCL
+
+model:
+  embedding_size: 64
+  n_layers: 3
+  reg_weight: 0.0001
+  ssl_temp: 0.1
+  ssl_reg: 0.000001
+  num_clusters: 100
+  proto_reg: 0.00000008
+
+saved_model: False
+saved_model_name: model_0
+
+recbole_params:
+  USER_ID_FIELD: 'user_id'
+  ITEM_ID_FIELD: 'item_id'
+  RATING_FIELD: 'rating'
+  TIME_FIELD: 'timestamp'
+  benchmark_filename: ['train', 'test', 'test']
+  load_col: {'inter': ['user_id', 'item_id', 'rating']}
+
+  gpu_id: 0
+  train_batch_size: 4096
+  eval_batch_size: 4096000
+
+  neg_sampling: None
+  # epochs: 100
+  show_progress: True
+
+enable_optimization: False
+optuna_optimizer:
+  n_trials: 40
+  k_optimization: [10]
+  sampler:
+    _target_: optuna.samplers.TPESampler
+    seed: 42
+  pruner:
+    _target_: optuna.pruners.MedianPruner
+  hyperparameters_vary:
+    int:
+      - name: embedding_size
+        low: 32
+        high: 256
+        step: 32
+      - name: n_layers
+        low: 1
+        high: 3
+        step: 1
+    float:
+      - name: ssl_temp 
+        low: 0.05
+        high: 0.1
+        log: False
+      - name: ssl_reg 
+        low: .0000001
+        high: .00000001
+        log: True
+      - name: proto_reg  
+        low: .0000001
+        high: .000000001
+        log: True
+      - name: num_clusters  
+        low: 100
+        high: 1000
+        log: True

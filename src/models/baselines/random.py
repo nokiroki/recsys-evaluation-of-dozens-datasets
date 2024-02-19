@@ -1,6 +1,7 @@
 """Random baseline"""
 from typing import Optional, Mapping, List
 from collections import defaultdict
+import time
 
 import numpy as np
 import numpy.random as rnd
@@ -15,10 +16,11 @@ class RandomBaseline:
     """Main random baseline
     Random sampled predict items for each user.
     """
-
     def __init__(self) -> None:
         self.train_items: Mapping[int, List[int]] = defaultdict(list)
         self.max_items: Optional[int] = None
+        self.learning_time: Optional[float] = None
+        self.predict_time: Optional[float] = None
 
     def fit(self, interactions: csr_matrix) -> None:
         """Initialize the seen items matrix for the user.
@@ -26,49 +28,39 @@ class RandomBaseline:
         Args:
             interactions (csr_matrix): Sparse matrix with user-item interactions
         """
+        start_time = time.time()
         interactions = interactions.tocoo()
         for user, item in zip(interactions.row, interactions.col):
             self.train_items[user].append(item)
         self.max_items = interactions.shape[1]
+        
+        self.learning_time = time.time() - start_time
 
-    def get_relevant_ranks(self, test_interactions: csr_matrix) -> np.ndarray:
-        """Get ranks for the relevant items
-        Seen items will be skipped.
-
-        Args:
-            test_interactions (csr_matrix): Relevant items for each user in the sparse format
-
-        Returns:
-            np.ndarray: ndarray with ranks
-        """
-        test_interactions = test_interactions.tocoo()
-        test_relevants = defaultdict(list)
-        max_len = test_interactions.getnnz(axis=1).max()
-        for user, item in zip(test_interactions.row, test_interactions.col):
-            test_relevants[user].append(item)
-            max_len = max(max_len, len(test_relevants[user]))
-        ranks = np.ones((len(test_relevants), max_len), dtype=np.int32) * -1
-        for i, user in enumerate(test_relevants):
-            temp_ranks = np.arange(self.max_items)
-            rnd.shuffle(temp_ranks)
-            ranks[i, :len(test_relevants[user])] = temp_ranks[test_relevants[user]]
-        return ranks
-
-    def recommend_k(self, test_interactions: csr_matrix, k: int) -> np.ndarray:
-        """Get k predicted items for each user.
-        Will not be same because of seen items pruning.
+    def recommend_k(self, k: int, userids: np.ndarray) -> np.ndarray:
+        """Recommend top k items for specified users.
 
         Args:
-            train_interactions (csr_matrix): Sparse matrix with the user-item train interactions
-            k (int): amount of items to predict
+            k (int): Number of items to recommend.
+            userids (np.ndarray): Array of user IDs to generate recommendations for.
 
         Returns:
-            np.ndarray: ndarray with predicted items
+            np.ndarray: Array with top k recommended items for each specified user.
         """
-        k = min(k, test_interactions.shape[1])
-        predicts = np.zeros((test_interactions.shape[0], k), dtype=np.int32)
-        for user in range(test_interactions.shape[0]):
-            temp_ranks = np.arange(self.max_items)
-            rnd.shuffle(temp_ranks)
-            predicts[user] = temp_ranks.argsort()[:k]
-        return predicts
+        k = min(k, self.max_items)  # Ensure k does not exceed the number of items
+
+        # Initialize array to store recommendations
+        recommendations = np.zeros((len(userids), k), dtype=np.int32)
+
+        start_time = time.time()
+        
+        for idx, user in enumerate(userids):
+            seen_items = set(self.train_items[user])
+            available_items = np.setdiff1d(np.arange(self.max_items), list(seen_items))
+
+            # Randomly select k items from available items
+            num_recommendations = min(k, len(available_items))
+            recommendations[idx, :num_recommendations] = rnd.choice(available_items, size=num_recommendations, replace=False)
+        
+        self.predict_time = time.time() - start_time
+        
+        return recommendations

@@ -10,6 +10,8 @@ from src.utils.logging import get_logger
 
 logger = get_logger(name=__name__)
 
+def pandas_to_aggregate(dataset: pd.DataFrame) -> pd.Series:
+    return dataset.groupby("userId")["itemId"].agg(list).sort_index().to_numpy()
 
 def pandas_to_sparse(
     dataset: pd.DataFrame,
@@ -52,7 +54,7 @@ def pandas_to_recbole(
     user_col: str = "userId",
     item_col: str = "itemId",
     rating_col: str = "rating",
-    date_col: str = "datetime"
+    date_col: str = "timestamp"
 ):
     dataset = dataset.drop(columns=["implicit_rating", date_col]).rename(
         columns={

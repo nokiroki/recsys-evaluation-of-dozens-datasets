@@ -1,2 +1,2 @@
 """Init module for metrics"""
-from .utils import *
+from .new_utils import *

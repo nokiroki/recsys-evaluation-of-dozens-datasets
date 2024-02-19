@@ -52,11 +52,7 @@ def bayes_scores(
     """
     results = list()
     names = data["Method"].unique()
-    for method_1, method_2 in tqdm(
-        combinations(names, 2),
-        desc="Pairwise testing",
-        total=comb(names.shape[0], 2)
-    ):
+    for method_1, method_2 in combinations(names, 2):
         scores_1 = get_score_array(data, method_1, bootstraped)
         scores_2 = get_score_array(data, method_2, bootstraped)
         if len(scores_1) != len(scores_2):

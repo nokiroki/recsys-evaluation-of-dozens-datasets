@@ -5,6 +5,7 @@ import time
 from typing import Optional, Mapping, Any, List
 from pathlib import Path
 from functools import partial
+import importlib
 
 import numpy as np
 import torch
@@ -23,10 +24,21 @@ from recbole.utils.case_study import full_sort_topk
 
 from src.utils.logging import get_logger
 from src.utils.metrics import normalized_discounted_cumulative_gain
-from src.utils.processing import get_optimization_lists, get_saving_path
-
+from src.utils.processing import (
+    get_optimization_lists,
+    get_saving_path,
+)
 logger = get_logger(name=__name__)
 
+def get_model_rec(model_name:str):
+    try:
+        model_class = get_model(model_name)
+    except (ValueError, ModuleNotFoundError):
+        model_file_name = model_name.lower()
+        module_path = ".".join(["src.models.recbole.components", model_file_name])
+        model_module = importlib.import_module(module_path, __name__)
+        model_class = getattr(model_module, model_name)
+    return model_class
 
 class RecboleBench:
     """
@@ -85,7 +97,7 @@ class RecboleBench:
             config[param_name] = param_value
 
         init_seed(config["seed"] + config["local_rank"], config["reproducibility"])
-        model = get_model(config["model"])(config, dataset).to(config["device"])
+        model = get_model_rec(config["model"])(config, dataset).to(config["device"])
 
         return RecboleBench(model, train_loader, model_params)
 
@@ -195,10 +207,22 @@ class RecboleBench:
             train_loader, initial_model_parameters
         )
         model.fit(train_loader, valid_loader)
-        relevant_ranks = model.get_relevant_ranks(valid_loader)
+        top_100_items = model.recommend_k(valid_loader, k=100)
+        recbole_val_lists = np.array(
+            [
+                tensor.tolist()
+                for tensor in valid_loader.uid2positive_item
+                if tensor is not None
+            ],
+            dtype=object,
+        )
         metrics = []
         for k in k_opt:
-            metrics.append(normalized_discounted_cumulative_gain(relevant_ranks, k))
+            metrics.append(
+                normalized_discounted_cumulative_gain(
+                    top_100_items, recbole_val_lists, k
+                )
+            )
         return np.mean(metrics)
 
     def fit(
@@ -244,104 +268,48 @@ class RecboleBench:
         with open(model_dir.joinpath("params.pcl"), "wb") as file:
             pickle.dump(self.model_params, file)
 
-    def get_relevant_ranks(
-        self,
-        test_loader: FullSortEvalDataLoader,
-    ) -> np.ndarray:
-        """
-        Calculate rank for test data
-
-        Args:
-            test_loader (FullSortEvalDataLoader): test dataloader from recbole package.
-            train_loader (TrainDataLoader): train dataloader from recbole package.
-
-
-        Returns:
-            ranks (np.ndarray): ranks for every item from the loader and
-                for every user in uid_series
-
-        """
-
-        start_time = time.time()
-
-        user_list = test_loader.uid_list.numpy()
-        item_num = test_loader.dataset.item_num
-        batch_size = 4096
-        start_idx = 0
-
-        topk = np.empty((0, item_num), dtype="int32")
-
-        with tqdm(
-            (len(user_list) + batch_size - 1) // batch_size,
-            desc="Calculating item ranks",
-            unit=" batch",
-        ) as pbar:
-            while start_idx < len(user_list):
-                batch = user_list[start_idx : start_idx + batch_size]
-
-                topk_batch = full_sort_topk(batch, self.model, test_loader, item_num)[1]
-
-                start_idx += batch_size
-
-                # Concatenate the new array to the result_array
-                topk = np.concatenate((topk, topk_batch.cpu()), axis=0)
-
-                pbar.update(1)
-
-        test_items_per_user = test_loader.uid2positive_item[user_list]
-        max_test_items = max(map(len, test_items_per_user))
-        # Create an array of ranks using the argsort function
-        ranks = torch.argsort(torch.tensor(topk), axis=1)
-
-        result_tensor = torch.zeros_like(ranks, dtype=torch.bool)
-
-        # creating mask
-        for user, test_item in enumerate(test_items_per_user):
-            result_tensor[user, test_item] = True
-
-        # # Make tensor of ranks, fill rows by -1 if len is less than max_test_items
-        ranks[~result_tensor] = -1
-        ranks, _ = torch.sort(ranks, dim=1, descending=True)
-        ranks = ranks[:, :max_test_items]
-
-        self.predict_time = time.time() - start_time
-
-        return ranks.cpu().numpy()
-
     def recommend_k(
         self, test_loader: FullSortEvalDataLoader, k: int = 100
     ) -> np.ndarray:
         """
-        Recommend top k items for users.
+        Recommend top k items for all users, but fill with -1 for users not in the test set.
         Args:
+            all_user_loader (FullSortEvalDataLoader): dataloader for all users.
             test_loader (FullSortEvalDataLoader): test dataloader from recbole package.
             k (int, optional): number of items in recommendation
         Returns:
             np.ndarray: 2-dimensional array with a row of item IDs for each user.
         """
-        user_list = test_loader.uid_list.clone().detach()
-        
+        start_time = time.time()
+        test_user_list = test_loader.uid_list.clone().detach()
+
         batch_size = 4096
         start_idx = 0
-        
+
         topk = np.empty((0, k), dtype="int32")
 
-        
         with tqdm(
-            (len(user_list) + batch_size - 1) // batch_size,
+            (len(test_user_list) + batch_size - 1) // batch_size,
             desc=f"Generating top_{k} recommendations",
             unit=" batch",
         ) as pbar:
-            while start_idx < len(user_list):
-                batch = user_list[start_idx : start_idx + batch_size]
+            while start_idx < len(test_user_list):
+                batch = test_user_list[start_idx : start_idx + batch_size]
 
-                topk_batch = full_sort_topk(batch, self.model, test_loader, k)[1]
+                # Check which users are in the test set
+                is_in_test = np.isin(batch.numpy(), test_user_list.numpy())
 
-                start_idx += batch_size
+                if len(batch[is_in_test]) > 0:
 
-                # Concatenate the new array to the result_array
-                topk = np.concatenate((topk, topk_batch.cpu()), axis=0)
+                    # Get recommendations for users in the test set
+                    recommendations = full_sort_topk(batch[is_in_test], self.model, test_loader, k)[1]
+
+                    start_idx += batch_size
+
+                    # Concatenate the new array to the result_array
+                    topk = np.concatenate((topk, recommendations.cpu()), axis=0)
 
                 pbar.update(1)
+        self.predict_time = time.time() - start_time
 
         return topk

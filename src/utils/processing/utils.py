@@ -8,9 +8,9 @@ import pandas as pd
 import numpy as np
 from scipy.sparse import coo_matrix, csr_matrix
 
-from replay.preprocessing import DataPreparator
-from replay.splitters import DateSplitter, RandomSplitter
-from pyspark.sql import DataFrame
+# from replay.data_preparator import DataPreparator
+# from replay.splitters import DateSplitter, RandomSplitter
+# from pyspark.sql import DataFrame
 
 from optuna.trial import Trial
 from omegaconf import DictConfig
@@ -72,9 +72,9 @@ def create_sparse_matrix(
 def train_test_split(
     dataset: pd.DataFrame,
     test_size: float,
-    user_col: str = "userid",
+    user_col: str = "userId",
     item_col: str = "itemId",
-    date_col: str = "datetime",
+    date_col: str = "timestamp",
     *,
     splitting_type: str = "temporal",
     random_state: Optional[int] = None
@@ -100,7 +100,7 @@ def train_test_split(
             f"Splitting type {splitting_type} isn't implemented for this example"
         )
 
-    # Filter out rows in test set that have users, items not present in train and val sets
+    # Filter out rows in test set that have users, items not present in train set
     train_users = set(train_set[user_col])
     train_items = set(train_set[item_col])
     test_set = test_set[
@@ -309,73 +309,73 @@ def data_split(
         raise ValueError("return format should be pandas, sparse or recbole")
 
 
-def replay_data_split(
-    dataset: pd.DataFrame, data_conf: DictConfig, random_state: Optional[int] = None
-) -> Tuple[DataFrame, DataFrame, DataFrame, DataFrame]:
-    """Special function to realize the replay way of splitting.
+# def replay_data_split(
+#     dataset: pd.DataFrame, data_conf: DictConfig, random_state: Optional[int] = None
+# ) -> Tuple[DataFrame, DataFrame, DataFrame, DataFrame]:
+#     """Special function to realize the replay way of splitting.
 
-    Args:
-        dataset (pd.DataFrame): Dataset to split.
-        data_conf (DictConfig): OmegaConf config with the splitting parameters.
-        random_state (Optional[int], optional): Fixed random state
+#     Args:
+#         dataset (pd.DataFrame): Dataset to split.
+#         data_conf (DictConfig): OmegaConf config with the splitting parameters.
+#         random_state (Optional[int], optional): Fixed random state
 
-    Raises:
-        ValueError: Raised if train_size + val_size + test_size is not equal to one.
-        NotImplementedError: Not implemented splitting size.
+#     Raises:
+#         ValueError: Raised if train_size + val_size + test_size is not equal to one.
+#         NotImplementedError: Not implemented splitting size.
 
-    Returns:
-        Tuple[DataFrame, DataFrame, DataFrame, DataFrame]: tuple with [
-            train_val, train, val, test
-        ] datasets. Train_val here is required as concatenated train and val may not be the same.
-    """
-    user_col = data_conf["user_column"]
-    item_col = data_conf["item_column"]
-    rating_col = data_conf["rating_column"]
-    date_col = data_conf["date_column"]
+#     Returns:
+#         Tuple[DataFrame, DataFrame, DataFrame, DataFrame]: tuple with [
+#             train_val, train, val, test
+#         ] datasets. Train_val here is required as concatenated train and val may not be the same.
+#     """
+#     user_col = data_conf["user_column"]
+#     item_col = data_conf["item_column"]
+#     rating_col = data_conf["rating_column"]
+#     date_col = data_conf["date_column"]
 
-    splitting_conf = data_conf["splitting"]
-    train_size = splitting_conf["train_size"]
-    val_size = splitting_conf["val_size"]
-    test_size = splitting_conf["test_size"]
-    splitting_type = splitting_conf["strategy"]
+#     splitting_conf = data_conf["splitting"]
+#     train_size = splitting_conf["train_size"]
+#     val_size = splitting_conf["val_size"]
+#     test_size = splitting_conf["test_size"]
+#     splitting_type = splitting_conf["strategy"]
 
-    if train_size + val_size + test_size != 1:
-        raise ValueError("Expected total fraction equal to 1")
+#     if train_size + val_size + test_size != 1:
+#         raise ValueError("Expected total fraction equal to 1")
 
-    # Hard code for nanoseconds to seconds transform
-    if dataset.iloc[0][date_col] > 1e11:
-        dataset[date_col] //= 1e9
+#     # Hard code for nanoseconds to seconds transform
+#     if dataset.iloc[0][date_col] > 1e11:
+#         dataset[date_col] //= 1e9
 
-    dataset = DataPreparator().transform(
-        {
-            "user_id": user_col,
-            "item_id": item_col,
-            "relevance": rating_col,
-            "timestamp": date_col,
-        },
-        dataset,
-    )
-    dataset = dataset.withColumnRenamed("user_id", "user_idx")
-    dataset = dataset.withColumnRenamed("item_id", "item_idx")
+#     dataset = DataPreparator().transform(
+#         {
+#             "user_id": user_col,
+#             "item_id": item_col,
+#             "relevance": rating_col,
+#             "timestamp": date_col,
+#         },
+#         dataset,
+#     )
+#     dataset = dataset.withColumnRenamed("user_id", "user_idx")
+#     dataset = dataset.withColumnRenamed("item_id", "item_idx")
 
-    params = {"drop_cold_items": True, "drop_cold_users": True}
+#     params = {"drop_cold_items": True, "drop_cold_users": True}
 
-    if splitting_type == "random":
-        params["seed"] = random_state
-        train_test_splitter = RandomSplitter(test_size=test_size, **params)
-        train_val_splitter = RandomSplitter(test_size=val_size, **params)
-    elif splitting_type == "temporal":
-        train_test_splitter = DateSplitter(test_start=test_size, **params)
-        train_val_splitter = DateSplitter(test_start=val_size, **params)
-    else:
-        raise NotImplementedError(
-            f"Splitting type {splitting_type} isn't implemented for this example"
-        )
+#     if splitting_type == "random":
+#         params["seed"] = random_state
+#         train_test_splitter = RandomSplitter(test_size=test_size, **params)
+#         train_val_splitter = RandomSplitter(test_size=val_size, **params)
+#     elif splitting_type == "temporal":
+#         train_test_splitter = DateSplitter(test_start=test_size, **params)
+#         train_val_splitter = DateSplitter(test_start=val_size, **params)
+#     else:
+#         raise NotImplementedError(
+#             f"Splitting type {splitting_type} isn't implemented for this example"
+#         )
 
-    train_val, test = train_test_splitter.split(dataset)
-    train, val = train_val_splitter.split(train_val)
+#     train_val, test = train_test_splitter.split(dataset)
+#     train, val = train_val_splitter.split(train_val)
 
-    return train_val, train, val, test
+#     return train_val, train, val, test
 
 
 def get_optimization_lists(params_vary: DictConfig, trial: Trial) -> Mapping[str, Any]:
@@ -439,7 +439,6 @@ def get_saving_path(path: Path) -> Path:
 def save_results(
     metrics: Tuple[pd.DataFrame, str],
     top_items: Tuple[np.ndarray, str],
-    ranks: Tuple[np.ndarray, str],
     result_folder: str,
     model_name: str,
     dataset_name: str,
@@ -456,7 +455,7 @@ def save_results(
         dataset_name (str): Name of the dataset.
         library_name (Optional[str], optional): Optional library name. Defaults to None.
     """
-    logger.info("Saving models' results, top predicted items and relevant ranks")
+    logger.info("Saving models' results, top predicted items")
 
     path_to_model = [library_name] if library_name is not None else []
     path_to_model.extend([model_name, dataset_name])
@@ -465,16 +464,15 @@ def save_results(
     result_metric_folder = Path("/".join((result_folder, "metrics"))).joinpath(
         path_to_model
     )
-    result_ranks_items = Path("/".join((result_folder, "predicts"))).joinpath(
+    result_items = Path("/".join((result_folder, "predicts"))).joinpath(
         path_to_model
     )
 
     if not result_metric_folder.exists():
         result_metric_folder.mkdir(parents=True)
-    if not result_ranks_items.exists():
-        result_ranks_items.mkdir(parents=True)
+    if not result_items.exists():
+        result_items.mkdir(parents=True)
 
     metrics[0].to_csv(result_metric_folder.joinpath(f"{metrics[1]}.csv"))
 
-    np.save(result_ranks_items.joinpath(f"{top_items[1]}.npy"), top_items[0])
-    np.save(result_ranks_items.joinpath(f"{ranks[1]}.npy"), ranks[0])
+    np.save(result_items.joinpath(f"{top_items[1]}.npy"), top_items[0])

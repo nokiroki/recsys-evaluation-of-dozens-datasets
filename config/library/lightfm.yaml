@@ -11,7 +11,6 @@ model:
 learning:
   num_threads: 20
   num_epochs: 50
-  # mp_threads: 20
 
 saved_model: False
 saved_model_name: model_0
