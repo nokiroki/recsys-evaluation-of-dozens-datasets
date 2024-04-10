@@ -52,9 +52,9 @@ data_links = {
     "yahoo": "https://disk.yandex.ru/d/3CBPKH0TCPfwOA",
     "yelp": "https://disk.yandex.ru/d/vLW7QsTsprfSZA",
     "yoochoose": "https://disk.yandex.ru/d/395GLkRlzpBuRA",
-    "sber_bank": "https://disk.yandex.ru/d/JCBnx9iYRTVdYQ",
-    "sber_smm": "https://disk.yandex.ru/d/xUmVwOtMsur8Jg",
-    "sber_zvuk": "https://disk.yandex.ru/d/ZQcuyhJRN-e02Q"
+    "data_bank": "https://disk.yandex.ru/d/JCBnx9iYRTVdYQ",
+    "data_smm": "https://disk.yandex.ru/d/xUmVwOtMsur8Jg",
+    "data_zvuk": "https://disk.yandex.ru/d/ZQcuyhJRN-e02Q"
 }
 
 
