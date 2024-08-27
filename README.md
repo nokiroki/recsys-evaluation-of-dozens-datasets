@@ -108,6 +108,25 @@ The top approach in almost
 all cases is EASE, losing only to LightGCL for Cluster 5. Other approaches exhibit less stability. For example, LightGCL has an average rank of 8 for cluster 2, while SLIM has the second-best average rank for it. Part of this variability can be explained by the complexity of clusters: the Geom. mean varies significantly from 0.0136 to 0.1244 for EASE. These results also justify the usage of datasets with similar characteristics to deploy conditions in offline evaluation for business use cases.
 
 ## Citation
-If you find this repository useful, please feel free to star it and cite our paper.
+If you find this repository useful, please feel free to star it and cite our paper:
+```
+@inproceedings{10.1145/3637528.3671655,
+author = {Shevchenko, Valeriy and Belousov, Nikita and Vasilev, Alexey and Zholobov, Vladimir and Sosedka, Artyom and Semenova, Natalia and Volodkevich, Anna and Savchenko, Andrey and Zaytsev, Alexey},
+title = {From Variability to Stability: Advancing RecSys Benchmarking Practices},
+year = {2024},
+isbn = {9798400704901},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3637528.3671655},
+doi = {10.1145/3637528.3671655},
+abstract = {In the rapidly evolving domain of Recommender Systems (RecSys), new algorithms frequently claim state-of-the-art performance based on evaluations over a limited set of arbitrarily selected datasets. However, this approach may fail to holistically reflect their effectiveness due to the significant impact of dataset characteristics on algorithm performance. Addressing this deficiency, this paper introduces a novel benchmarking methodology to facilitate a fair and robust comparison of RecSys algorithms, thereby advancing evaluation practices. By utilizing a diverse set of 30 open datasets, including two introduced in this work, and evaluating 11 collaborative filtering algorithms across 9 metrics, we critically examine the influence of dataset characteristics on algorithm performance. We further investigate the feasibility of aggregating outcomes from multiple datasets into a unified ranking. Through rigorous experimental analysis, we validate the reliability of our methodology under the variability of datasets, offering a benchmarking strategy that balances quality and computational demands. This methodology enables a fair yet effective means of evaluating RecSys algorithms, providing valuable guidance for future research endeavors.},
+booktitle = {Proceedings of the 30th ACM SIGKDD Conference on Knowledge Discovery and Data Mining},
+pages = {5701–5712},
+numpages = {12},
+keywords = {benchmarking, data characteristics, datasets, evaluation, recommender systems},
+location = {Barcelona, Spain},
+series = {KDD '24}
+}
+```
 
 Need help? Contact me via [Telegram](https://t.me/Escape142).
